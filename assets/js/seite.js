@@ -172,4 +172,94 @@
       return window.sessionStorage.getItem(schluessel);
     } catch (fehler) { return null; }
   }
+
+  // Kartenstapel im Hero der Startseite. Die oberste Karte zeigt sich, zieht
+  // nach links ab und legt sich hinten wieder an; Klick oder der Knopf
+  // schalten sofort weiter. Der Zeiger auf dem Stapel haelt den Lauf an,
+  // eine verdeckte Registerkarte auch. Lage und Uebergaenge stehen im CSS
+  // (karte--p0 bis karte--p3, karte--abgang), hier laeuft nur die Uhr und
+  // die Vergabe der Klassen. Bei reduzierter Bewegung laeuft nichts von
+  // selbst, der Knopf schaltet dann ohne Uebergang um (CSS nimmt die
+  // Transitionen heraus).
+  var stapel = document.querySelector('[data-kartenstapel]');
+  if (stapel) {
+    var karten = Array.prototype.slice.call(stapel.querySelectorAll('.karte'));
+    var punkteHalter = document.querySelector('[data-kartenpunkte]');
+    var weiter = document.querySelector('[data-kartenweiter]');
+    var kopf = 0;
+    var beschaeftigt = false;
+    var TAKT = 4200;
+
+    var punkte = karten.map(function () {
+      var p = document.createElement('span');
+      if (punkteHalter) { punkteHalter.appendChild(p); }
+      return p;
+    });
+
+    var legen = function () {
+      karten.forEach(function (karte, i) {
+        var lage = (i - kopf + karten.length) % karten.length;
+        karte.classList.remove('karte--p0', 'karte--p1', 'karte--p2', 'karte--p3', 'karte--abgang');
+        karte.classList.add('karte--p' + Math.min(lage, 3));
+        karte.style.zIndex = String(karten.length - lage);
+      });
+      punkte.forEach(function (p, i) {
+        if (i === kopf) { p.setAttribute('data-an', ''); } else { p.removeAttribute('data-an'); }
+      });
+    };
+
+    var schalten = function () {
+      if (beschaeftigt || karten.length < 2) { return; }
+      beschaeftigt = true;
+      var scheidende = karten[kopf];
+      scheidende.classList.add('karte--abgang');
+      // Der Abgang liegt ueber allem, die Nachruecker duerfen schon liegen.
+      scheidende.style.zIndex = String(karten.length + 1);
+      kopf = (kopf + 1) % karten.length;
+      karten.forEach(function (karte, i) {
+        if (karte === scheidende) { return; }
+        var lage = (i - kopf + karten.length) % karten.length;
+        karte.classList.remove('karte--p0', 'karte--p1', 'karte--p2', 'karte--p3');
+        karte.classList.add('karte--p' + Math.min(lage, 3));
+        karte.style.zIndex = String(karten.length - lage);
+      });
+      window.setTimeout(function () { legen(); beschaeftigt = false; }, 660);
+    };
+
+    legen();
+
+    if (!reduziert) {
+      var uhr = window.setInterval(function () {
+        if (document.hidden || stapel.matches(':hover')) { return; }
+        schalten();
+      }, TAKT);
+    }
+    stapel.addEventListener('click', schalten);
+    if (weiter) { weiter.addEventListener('click', schalten); }
+  }
+
+  // Die Belegzahlen im Hero zaehlen beim ersten Sichtbarwerden hoch. Ohne
+  // JavaScript und bei reduzierter Bewegung steht die fertige Zahl im HTML,
+  // hier wird sie nur einmalig von null an aufgebaut. Kleine Zahlen, kurze
+  // Strecke: 700 Millisekunden, danach steht exakt der Ausgangswert.
+  var zaehlwerke = document.querySelectorAll('.kennzeile--statement dd');
+  if (zaehlwerke.length && !reduziert && 'IntersectionObserver' in window) {
+    var zaehlBeobachter = new IntersectionObserver(function (eintraege) {
+      eintraege.forEach(function (e) {
+        if (!e.isIntersecting) { return; }
+        zaehlBeobachter.unobserve(e.target);
+        var ziel = parseInt(e.target.textContent, 10);
+        if (!ziel || ziel < 0) { return; }
+        var start = null;
+        var schritt = function (jetzt) {
+          if (start === null) { start = jetzt; }
+          var anteil = Math.min((jetzt - start) / 700, 1);
+          e.target.textContent = String(Math.round(ziel * (1 - Math.pow(1 - anteil, 3))));
+          if (anteil < 1) { window.requestAnimationFrame(schritt); }
+        };
+        window.requestAnimationFrame(schritt);
+      });
+    }, { threshold: .6 });
+    zaehlwerke.forEach(function (dd) { zaehlBeobachter.observe(dd); });
+  }
 })();

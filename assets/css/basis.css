@@ -456,44 +456,90 @@ main li a { text-decoration-color: var(--linie-stark); }
   .hero__bild figcaption { padding-inline: 0 var(--bahn-rand); }
 }
 
-/* Statement-Hero, Umbau am 15.08.2026: dunkles Band, uebergrosse Zeile,
-   die Belegzahlen als grosse Ziffern statt eines Fotos. Das Foto folgt als
-   eigenes Band darunter und ragt in das dunkle Band hinein. Grund fuer den
-   Tausch: die Originalfotos (maximal 1024 Pixel) tragen keine grosse
-   Hero-Flaeche, uebergrosse Typografie und Zahlen tragen sie schon. */
-.hero--statement { display: block; padding-top: clamp(2.75rem, 7vw, 5.5rem);
-                   padding-bottom: clamp(5rem, 10vw, 8.5rem); }
-.hero--statement h1 { font-size: clamp(3rem, 1.5rem + 7.2vw, 7.5rem);
-                      line-height: .94; letter-spacing: -.042em;
+/* Statement-Hero, Umbau am 15.08.2026, Kartenstapel seit demselben Abend:
+   dunkles Band, links die Zeile, rechts ein Stapel aus Projektkarten. Die
+   oberste Karte zeigt sich und zieht nach links ab, die naechste rueckt
+   nach (Choreografie in assets/js/seite.js). Karten statt einer grossen
+   Foto-Flaeche, weil die Originale maximal 1024 Pixel tragen: auf
+   Kartenbreite sind sie scharf. */
+.hero--statement { display: block; padding-top: clamp(2.25rem, 5vw, 4rem);
+                   padding-bottom: clamp(3rem, 6vw, 5rem); }
+.hero--statement h1 { font-size: clamp(2.75rem, 1.7rem + 4.6vw, 5.25rem);
+                      line-height: .96; letter-spacing: -.038em;
                       margin-bottom: var(--raum-3); }
 .hero--statement .vorspann { max-width: 32rem; }
 .kennzeile.kennzeile--statement { border-top-color: var(--nacht-kante); }
-.kennzeile.kennzeile--statement > div { padding-block: 1.2rem .4rem; }
+.kennzeile.kennzeile--statement > div { padding-block: 1.1rem .4rem; }
 /* Doppelte Klasse mit Absicht: .kennzeile dd steht weiter unten im Blatt
    und wuerde die Grosse sonst wieder einsammeln. */
-.kennzeile.kennzeile--statement dd { font-size: clamp(2.5rem, 1.6rem + 4vw, 5.25rem);
+.kennzeile.kennzeile--statement dd { font-size: clamp(2.25rem, 1.5rem + 3vw, 4rem);
                                      line-height: 1; letter-spacing: -.03em; }
 @media (min-width: 62rem) {
   .hero--statement { display: grid;
-                     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-                     column-gap: var(--raum-4); align-items: end; }
-  .hero--statement h1 { grid-column: 1 / -1; max-width: none; }
-  .hero--statement .vorspann { grid-column: 1; margin-bottom: 0; }
-  .hero--statement .knopfreihe { grid-column: 2; justify-content: flex-end;
-                                 align-self: end; }
+                     grid-template-columns: minmax(0, 6fr) minmax(0, 6fr);
+                     column-gap: clamp(var(--raum-3), 5vw, var(--raum-4));
+                     align-items: center; }
+  .hero--statement .hero__links { grid-column: 1; grid-row: 1; }
+  .hero--statement .kartenbuehne { grid-column: 2; grid-row: 1; }
 }
-/* Das Fotoband unter dem Statement-Hero: volle Bahn, flacher Schnitt, oben
-   in das dunkle Band geschoben. Die Ueberlappung traegt hier, weil unter dem
-   Foto nur die Unterschrift und Rand liegen. Der Hero traegt dafuer unten
-   zusaetzlichen Raum (padding-bottom oben). */
-.hero-band { padding-top: 0; border-top: 0; }
-.hero-band__bild { margin-inline: calc(-1 * var(--bahn-rand)); position: relative;
-                   margin-top: calc(-1 * clamp(2.5rem, 6vw, 5rem)); }
-.hero-band__bild figcaption { padding-inline: var(--bahn-rand); }
-.bild--panorama img { aspect-ratio: 16 / 7; object-fit: cover; }
-@media (min-width: 48rem) {
-  .hero-band__bild { margin-inline: 0 calc(50% - 50vw); }
-  .hero-band__bild figcaption { padding-inline: 0; }
+
+/* Der Kartenstapel: eine Buehne mit fester Hoehe (alle Karten in derselben
+   Rasterzelle), damit beim Wechsel nichts darunter springt. Die Fachlage
+   der wartenden Karten steckt in Klassen karte--p1 bis karte--p3, die
+   Praesentation in karte--p0, der Abgang in karte--abgang; ohne JavaScript
+   uebernimmt :nth-child dieselbe Lage und die erste Karte liegt oben. Nur
+   transform und opacity, die Reihenfolge im Stapel regelt z-index. */
+.kartenbuehne { margin-top: var(--raum-3); max-width: 26rem; }
+@media (min-width: 62rem) { .kartenbuehne { margin-top: 0; max-width: none; } }
+.kartenstapel { display: grid; padding: 0 2.6rem 2.2rem 0; cursor: pointer; }
+.karte {
+  grid-area: 1 / 1; margin: 0; background: var(--nacht-papier);
+  padding: .55rem .55rem 0; border: 1px solid var(--nacht-kante);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .6);
+  transition: transform 650ms var(--kurve-aus), opacity 480ms ease;
+  will-change: transform;
+}
+.karte figcaption {
+  display: flex; justify-content: space-between; gap: .75rem;
+  padding: .65rem .2rem .75rem; color: var(--nacht);
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-size: .8125rem; font-weight: 700; letter-spacing: .01em;
+}
+.karte figcaption span { font-family: "Quelle", "Quelle Ersatz", Georgia, serif;
+                         font-weight: 400; color: #5c5348; }
+.bild--karte img { aspect-ratio: 4 / 3; object-fit: cover; }
+.karte--p0 { transform: translate(-.35rem, -.5rem) rotate(-1.4deg); }
+.karte--p1 { transform: translate(1.15rem, .85rem) rotate(1.7deg); }
+.karte--p2 { transform: translate(2.3rem, 1.7rem) rotate(3.2deg); }
+.karte--p3 { transform: translate(3.1rem, 2.3rem) rotate(4.4deg); opacity: 0; }
+.karte--abgang { transform: translate(-115%, -3%) rotate(-8deg); opacity: 0;
+                 transition: transform 620ms var(--kurve-ios), opacity 420ms ease; }
+/* Ohne JavaScript: dieselbe Fachlage aus der Dokumentreihenfolge, die
+   erste Karte oben. Der Stapel ist dann ein stilles Bild. */
+:root:not(.js) .karte:nth-child(1) { transform: translate(-.35rem, -.5rem) rotate(-1.4deg); z-index: 6; }
+:root:not(.js) .karte:nth-child(2) { transform: translate(1.15rem, .85rem) rotate(1.7deg); z-index: 5; }
+:root:not(.js) .karte:nth-child(3) { transform: translate(2.3rem, 1.7rem) rotate(3.2deg); z-index: 4; }
+:root:not(.js) .karte:nth-child(n+4) { transform: translate(3.1rem, 2.3rem) rotate(4.4deg); opacity: 0; }
+:root:not(.js) .kartenstapel { cursor: default; }
+/* Weiterschalter und Stand: ein echter Knopf fuer Tastatur und Vorlesen,
+   daneben ein Punkt je Karte. */
+.kartenleiste { display: flex; align-items: center; gap: .9rem; margin-top: .6rem; }
+.kartenknopf {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.75rem; height: 2.75rem; padding: 0; cursor: pointer;
+  background: none; border: 1px solid var(--nacht-kante); border-radius: 50%;
+  color: var(--nacht-papier);
+  transition: border-color var(--dauer-ui) ease, transform var(--dauer-druck) var(--kurve-aus);
+}
+.kartenknopf:active { transform: scale(.94); }
+.kartenpunkte { display: flex; gap: .45rem; }
+.kartenpunkte span { width: .45rem; height: .45rem; border-radius: 50%;
+                     background: var(--nacht-kante);
+                     transition: background-color var(--dauer-ui) ease, transform var(--dauer-ui) var(--kurve-aus); }
+.kartenpunkte span[data-an] { background: var(--signal); transform: scale(1.35); }
+:root:not(.js) .kartenleiste { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .karte, .karte--abgang { transition: none; }
 }
 
 /* Der Einstieg jeder Unterseite (der Abschnitt direkt hinter den
@@ -1097,6 +1143,7 @@ main address { font-style: normal; }
   .raster h3 a:hover, .aufzaehlung h3 a:hover, .schwerpunkt h3 a:hover,
   .raster--eng a:hover, .sprungliste a:hover { text-decoration: underline; }
   .kachel:hover { border-color: var(--linie-stark); }
+  .kartenknopf:hover { border-color: var(--nacht-papier); }
   .frage > summary:hover h3 { text-decoration: underline; }
   .filter__wahl label:hover { color: var(--grund); }
   /* Der Pfeil wandert, nicht die Trefferflaeche: eine Zeile, die sich unter
