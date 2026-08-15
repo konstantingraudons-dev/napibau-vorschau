@@ -898,6 +898,11 @@ main li a { text-decoration-color: var(--linie-stark); }
 @media (min-width: 34rem) {
   .leistungskacheln { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* Drei Begleitleistungen stehen zu dritt in einer Zeile, nicht zwei plus
+   eine. */
+@media (min-width: 60rem) {
+  .leistungskacheln--drei { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .leistungskacheln li { position: relative; background: var(--papier-tief);
                        border: 1px solid var(--linie); border-top: 2px solid var(--grund);
                        padding: 1.25rem 1.4rem 1.4rem;
@@ -915,7 +920,19 @@ main li a { text-decoration-color: var(--linie-stark); }
    ersten Spalte und sieht aus, als gehoere er dorthin. */
 .weiterlink { margin-top: var(--raum-3); font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
               font-size: .875rem; font-weight: 700; letter-spacing: .02em; }
-.weiterlink a { text-decoration-thickness: 2px; text-underline-offset: .28em; }
+/* Seit dem 15.08.2026 ein Knopf statt eines unterstrichenen Links
+   (Kundenwunsch). Die Farben kommen aus den lokalen Variablen, in dunklen
+   Baendern stimmt der Knopf damit von selbst. Fliesstextlinks bleiben
+   unterstrichen: mitten im Satz ist die Unterstreichung das ehrlichste
+   Zeichen. */
+.weiterlink a { display: inline-flex; align-items: center;
+                padding: .7rem 1.15rem; border: 1px solid var(--linie-stark);
+                text-decoration: none; color: var(--grund);
+                transition: background-color var(--dauer-ui) ease,
+                            color var(--dauer-ui) ease,
+                            border-color var(--dauer-ui) ease,
+                            transform var(--dauer-druck) var(--kurve-aus); }
+.weiterlink a:active { transform: scale(.97); }
 /* Der Pfeil steht als eigenes Zeichen hinter dem Wort, damit er beim Zeigen
    wandern kann, ohne die Trefferflaeche des Links zu verschieben (Regel: eine
    Zeile, die sich unter dem Zeiger wegzieht, flackert an ihrer Kante). Er
@@ -1223,10 +1240,13 @@ main address { font-style: normal; }
   .raster--eng a:hover, .sprungliste a:hover { text-decoration: underline; }
   .kachel:hover { border-color: var(--linie-stark); }
   .kartenknopf:hover { border-color: var(--nacht-papier); }
+  .leistungskacheln li:hover { border-color: var(--linie-stark); background: #ece3d4; }
+  .leistungskacheln li:hover h3 a { text-decoration: underline; }
   .frage > summary:hover h3 { text-decoration: underline; }
   /* Der Pfeil wandert, nicht die Trefferflaeche: eine Zeile, die sich unter
      dem Zeiger wegzieht, flackert an ihrer Kante. */
-  .weiterlink a:hover { text-decoration-color: var(--signal); }
+  .weiterlink a:hover { background: var(--grund); color: var(--papier);
+                        border-color: var(--grund); }
   .weiterlink a:hover::after { transform: translateX(.3rem); }
 
   /* Das Foto im Rahmen ruecht beim Zeigen naeher heran. Der Rahmen selbst
@@ -1271,6 +1291,7 @@ main address { font-style: normal; }
 .js .einblenden .raster--bilder > li,
 .js .einblenden .projektraster > li,
 .js .einblenden .aufzaehlung > li,
+.js .einblenden .leistungskacheln > li,
 .js .einblenden .schrittfolge > li {
   opacity: 0; transform: translateY(8px);
   transition: opacity 380ms var(--kurve-aus), transform 380ms var(--kurve-aus);
@@ -1278,14 +1299,15 @@ main address { font-style: normal; }
 .js .einblenden.sichtbar .raster--bilder > li,
 .js .einblenden.sichtbar .projektraster > li,
 .js .einblenden.sichtbar .aufzaehlung > li,
+.js .einblenden.sichtbar .leistungskacheln > li,
 .js .einblenden.sichtbar .schrittfolge > li { opacity: 1; transform: none; }
-.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(2) { transition-delay: 45ms; }
-.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(3) { transition-delay: 90ms; }
-.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(4) { transition-delay: 135ms; }
-.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(5) { transition-delay: 180ms; }
-.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(6) { transition-delay: 225ms; }
-.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(7) { transition-delay: 270ms; }
-.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(8) { transition-delay: 315ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .leistungskacheln, .schrittfolge) > :nth-child(2) { transition-delay: 45ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .leistungskacheln, .schrittfolge) > :nth-child(3) { transition-delay: 90ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .leistungskacheln, .schrittfolge) > :nth-child(4) { transition-delay: 135ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .leistungskacheln, .schrittfolge) > :nth-child(5) { transition-delay: 180ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .leistungskacheln, .schrittfolge) > :nth-child(6) { transition-delay: 225ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .leistungskacheln, .schrittfolge) > :nth-child(7) { transition-delay: 270ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .leistungskacheln, .schrittfolge) > :nth-child(8) { transition-delay: 315ms; }
 /* Der Katalog auf /referenzen/ tritt anders auf als der Kartenstapel der
    Startseite: seine Kacheln liegen vor dem Erscheinen leicht gedreht, wie
    Karten auf dem Tisch, und richten sich beim Sichtbarwerden auf. Diese
@@ -1354,6 +1376,7 @@ main address { font-style: normal; }
   .js .einblenden .raster--bilder > li,
   .js .einblenden .projektraster > li,
   .js .einblenden .aufzaehlung > li,
+  .js .einblenden .leistungskacheln > li,
   .js .einblenden .schrittfolge > li,
   .js .einblenden .projektblatt__bild img,
   .js .einblenden .bildband img { opacity: 1; transform: none; transition: none; }
