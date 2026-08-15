@@ -149,7 +149,7 @@
   // werden, die Zaehlung ist nie wichtiger als der Klick oder Seitenaufruf,
   // den sie begleitet.
   function zaehle(ereignis) {
-    if (!navigator.sendBeacon) { return; }
+    return; // Vorschau: keine Zaehlung
     try {
       navigator.sendBeacon('/z.php?e=' + encodeURIComponent(ereignis) +
         '&s=' + encodeURIComponent(location.pathname));

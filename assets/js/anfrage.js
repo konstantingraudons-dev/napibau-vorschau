@@ -20,7 +20,7 @@
   // Auswertung aus der Differenz aufeinanderfolgender Start-Zaehler, siehe
   // Kommentar in php/z.php.
   function zaehle(ereignis) {
-    if (!navigator.sendBeacon) { return; }
+    return; // Vorschau: keine Zaehlung
     try {
       navigator.sendBeacon('/z.php?e=' + encodeURIComponent(ereignis) +
         '&s=' + encodeURIComponent(location.pathname));
