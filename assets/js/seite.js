@@ -173,6 +173,29 @@
     } catch (fehler) { return null; }
   }
 
+  // Hinweisleiste beim ersten Besuch der Sitzung. Kein Zustimmungsdialog:
+  // die Seite setzt keine Cookies und laedt nichts von fremden Servern, es
+  // gibt also nichts zu bestaetigen, und genau das sagt die Leiste. Sie
+  // entsteht nur hier per Skript, damit sie ohne JavaScript niemandem im
+  // Weg steht, und merkt sich das Wegklicken je Sitzung. Wirft
+  // sessionStorage (sitzung() faengt das ab), erscheint sie schlimmstenfalls
+  // je Seite erneut; auch dann bleibt sie ein Griff.
+  if (!sitzung('hinweis_gesehen')) {
+    var leiste = document.createElement('aside');
+    leiste.className = 'hinweisleiste';
+    leiste.setAttribute('aria-label', 'Hinweis zum Datenschutz');
+    leiste.innerHTML =
+      '<p>Diese Website kommt ohne Cookies und ohne Tracking aus. ' +
+      'Es gibt deshalb nichts zu bestätigen. Details in der ' +
+      '<a href="/datenschutz/">Datenschutzerklärung</a>.</p>' +
+      '<button class="knopf knopf--signal knopf--klein" type="button">Alles klar</button>';
+    leiste.querySelector('button').addEventListener('click', function () {
+      sitzung('hinweis_gesehen', '1');
+      leiste.remove();
+    });
+    document.body.appendChild(leiste);
+  }
+
   // Kartenstapel im Hero der Startseite. Die oberste Karte zeigt sich, zieht
   // nach links ab und legt sich hinten wieder an; Klick oder der Knopf
   // schalten sofort weiter. Der Zeiger auf dem Stapel haelt den Lauf an,
@@ -226,15 +249,88 @@
       window.setTimeout(function () { legen(); beschaeftigt = false; }, 660);
     };
 
+    // Eine Karte zurueckholen: sie startet dort, wo der Abgang endet, und
+    // faehrt von links wieder auf den Stapel. Der Zwischenzustand wird ohne
+    // Uebergang gesetzt (transition none plus erzwungenes Layout), erst der
+    // Weg zurueck animiert.
+    var zurueckholen = function () {
+      if (beschaeftigt || karten.length < 2) { return; }
+      beschaeftigt = true;
+      kopf = (kopf - 1 + karten.length) % karten.length;
+      var kommende = karten[kopf];
+      kommende.classList.remove('karte--p0', 'karte--p1', 'karte--p2', 'karte--p3');
+      kommende.style.transition = 'none';
+      kommende.classList.add('karte--abgang');
+      kommende.style.zIndex = String(karten.length + 1);
+      void kommende.offsetWidth;
+      kommende.style.transition = '';
+      kommende.classList.remove('karte--abgang');
+      kommende.classList.add('karte--p0');
+      karten.forEach(function (karte, i) {
+        if (karte === kommende) { return; }
+        var lage = (i - kopf + karten.length) % karten.length;
+        karte.classList.remove('karte--p0', 'karte--p1', 'karte--p2', 'karte--p3');
+        karte.classList.add('karte--p' + Math.min(lage, 3));
+        karte.style.zIndex = String(karten.length - lage);
+      });
+      window.setTimeout(function () { legen(); beschaeftigt = false; }, 660);
+    };
+
     legen();
 
-    if (!reduziert) {
-      var uhr = window.setInterval(function () {
-        if (document.hidden || stapel.matches(':hover')) { return; }
-        schalten();
-      }, TAKT);
-    }
-    stapel.addEventListener('click', schalten);
+    // Automatisch blaettern, auch bei reduzierter Bewegung: dann nimmt das
+    // CSS die Uebergaenge heraus und der Wechsel ist ein harter Schnitt
+    // statt einer Fahrt. Der Zeiger auf dem Stapel und eine verdeckte
+    // Registerkarte halten die Uhr an.
+    window.setInterval(function () {
+      if (document.hidden || stapel.matches(':hover')) { return; }
+      schalten();
+    }, TAKT);
+
+    // Wischen: die oberste Karte folgt dem Finger, senkrechtes Wischen
+    // bleibt beim Scrollen (touch-action: pan-y im CSS). Nach links heisst
+    // weiter, nach rechts heisst zurueck. Ein erkannter Zug unterdrueckt
+    // den Klick, der auf pointerup folgt.
+    var zug = null;
+    var gewischt = false;
+    stapel.addEventListener('pointerdown', function (e) {
+      if (karten.length < 2 || beschaeftigt) { return; }
+      zug = { x: e.clientX, y: e.clientY, id: e.pointerId, dx: 0, aktiv: false };
+    });
+    stapel.addEventListener('pointermove', function (e) {
+      if (!zug || e.pointerId !== zug.id) { return; }
+      var dx = e.clientX - zug.x;
+      var dy = e.clientY - zug.y;
+      if (!zug.aktiv) {
+        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+          zug.aktiv = true;
+          try { stapel.setPointerCapture(e.pointerId); } catch (fehler) { /* egal */ }
+        } else if (Math.abs(dy) > 12) { zug = null; return; } else { return; }
+      }
+      zug.dx = dx;
+      var oberste = karten[kopf];
+      oberste.style.transition = 'none';
+      oberste.style.transform = 'translate(' + dx + 'px, -0.5rem) rotate(' + (dx / 40 - 1.4) + 'deg)';
+    });
+    var zugEnde = function (e) {
+      if (!zug || e.pointerId !== zug.id) { return; }
+      var oberste = karten[kopf];
+      var dx = zug.dx;
+      var aktiv = zug.aktiv;
+      zug = null;
+      if (!aktiv) { return; }
+      gewischt = true;
+      oberste.style.transition = '';
+      oberste.style.transform = '';
+      if (dx < -60) { schalten(); }
+      else if (dx > 60) { zurueckholen(); }
+    };
+    stapel.addEventListener('pointerup', zugEnde);
+    stapel.addEventListener('pointercancel', zugEnde);
+    stapel.addEventListener('click', function () {
+      if (gewischt) { gewischt = false; return; }
+      schalten();
+    });
     if (weiter) { weiter.addEventListener('click', schalten); }
   }
 
