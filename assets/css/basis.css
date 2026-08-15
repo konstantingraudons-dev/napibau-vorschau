@@ -456,6 +456,46 @@ main li a { text-decoration-color: var(--linie-stark); }
   .hero__bild figcaption { padding-inline: 0 var(--bahn-rand); }
 }
 
+/* Statement-Hero, Umbau am 15.08.2026: dunkles Band, uebergrosse Zeile,
+   die Belegzahlen als grosse Ziffern statt eines Fotos. Das Foto folgt als
+   eigenes Band darunter und ragt in das dunkle Band hinein. Grund fuer den
+   Tausch: die Originalfotos (maximal 1024 Pixel) tragen keine grosse
+   Hero-Flaeche, uebergrosse Typografie und Zahlen tragen sie schon. */
+.hero--statement { display: block; padding-top: clamp(2.75rem, 7vw, 5.5rem);
+                   padding-bottom: clamp(5rem, 10vw, 8.5rem); }
+.hero--statement h1 { font-size: clamp(3rem, 1.5rem + 7.2vw, 7.5rem);
+                      line-height: .94; letter-spacing: -.042em;
+                      margin-bottom: var(--raum-3); }
+.hero--statement .vorspann { max-width: 32rem; }
+.kennzeile.kennzeile--statement { border-top-color: var(--nacht-kante); }
+.kennzeile.kennzeile--statement > div { padding-block: 1.2rem .4rem; }
+/* Doppelte Klasse mit Absicht: .kennzeile dd steht weiter unten im Blatt
+   und wuerde die Grosse sonst wieder einsammeln. */
+.kennzeile.kennzeile--statement dd { font-size: clamp(2.5rem, 1.6rem + 4vw, 5.25rem);
+                                     line-height: 1; letter-spacing: -.03em; }
+@media (min-width: 62rem) {
+  .hero--statement { display: grid;
+                     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+                     column-gap: var(--raum-4); align-items: end; }
+  .hero--statement h1 { grid-column: 1 / -1; max-width: none; }
+  .hero--statement .vorspann { grid-column: 1; margin-bottom: 0; }
+  .hero--statement .knopfreihe { grid-column: 2; justify-content: flex-end;
+                                 align-self: end; }
+}
+/* Das Fotoband unter dem Statement-Hero: volle Bahn, flacher Schnitt, oben
+   in das dunkle Band geschoben. Die Ueberlappung traegt hier, weil unter dem
+   Foto nur die Unterschrift und Rand liegen. Der Hero traegt dafuer unten
+   zusaetzlichen Raum (padding-bottom oben). */
+.hero-band { padding-top: 0; border-top: 0; }
+.hero-band__bild { margin-inline: calc(-1 * var(--bahn-rand)); position: relative;
+                   margin-top: calc(-1 * clamp(2.5rem, 6vw, 5rem)); }
+.hero-band__bild figcaption { padding-inline: var(--bahn-rand); }
+.bild--panorama img { aspect-ratio: 16 / 7; object-fit: cover; }
+@media (min-width: 48rem) {
+  .hero-band__bild { margin-inline: 0 calc(50% - 50vw); }
+  .hero-band__bild figcaption { padding-inline: 0; }
+}
+
 /* Der Einstieg jeder Unterseite (der Abschnitt direkt hinter den
    Brotkrumen) folgt ab Tabletbreite derselben Ungleichheit wie die
    Startseite: die Ueberschrift steht allein in der schmaleren linken
@@ -739,9 +779,12 @@ main li a { text-decoration-color: var(--linie-stark); }
    linken Rand hinaus. */
 .dreisatz p::before {
   counter-increment: zusage; content: counter(zusage, decimal-leading-zero);
-  display: block; margin-top: -.2em; margin-bottom: .35rem;
+  display: block; margin-top: -.12em; margin-bottom: .45rem;
   font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
-  font-size: .75rem; letter-spacing: .12em; color: var(--beton);
+  /* Seit dem 15.08.2026 gross statt als Marginalnotiz: die Ziffer ist das
+     grafische Element des Abschnitts, nicht seine Fussnote. */
+  font-size: clamp(2rem, 1.4rem + 2.4vw, 3.5rem); font-weight: 700;
+  line-height: 1; letter-spacing: -.03em; color: var(--signal);
 }
 .dreisatz p:first-child { font-size: 1.1875rem; }
 @media (min-width: 60rem) {
