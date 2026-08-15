@@ -1,0 +1,101 @@
+/* Anfragestrecke /anfrage/: eigenes, kleines Stylesheet statt Erweiterung von
+   basis.css, weil diese Regeln nur auf einer Seite (und ihren PHP-gerenderten
+   Folgeschritten in php/anfrage.php) gebraucht werden. Gleiche Token, gleiche
+   Sprache: Haarlinien statt Kaesten, Auswahl zeigt sich in Signalfarbe und
+   Fettung, keine Fuellfarbe, keine Rundung (--rund ist ohnehin 0).
+
+   Ausnahme (Task 16, Leistungsmessung): .fortschritt, .kacheln und
+   .formular-ausweg stehen NICHT hier, sondern in basis.css mit Zwilling in
+   vorlagen/kritisch.css.inc. Alle drei stehen auf Schritt 1 von /anfrage/
+   oberhalb der Falz, diese Datei hier laedt aber asynchron (media="print",
+   onload-Tausch in vorlagen/anfrage.html) ohne eigenen kritischen Zwilling.
+   Gemessen sprang Schritt 1 dadurch beim Nachladen dieser Datei von
+   ungestylter Liste in sein endgueltiges Raster, CLS 0,59 bis 0,64 statt
+   der geforderten 0,05 (siehe Messbericht zu Task 16). Die Aufgabe durfte
+   vorlagen/anfrage.html nicht anfassen, also wandern die drei Regeln
+   stattdessen dorthin, wo bereits ein kritischer Zwilling existiert. */
+
+/* ----------------------------------------------------------------- Schritte */
+/* Jeder Schritt ist ein eigenstaendiges Formular. Ohne JavaScript ist auf der
+   gebauten Seite ausschliesslich Schritt 1 sichtbar (kein hidden-Attribut
+   noetig, Schritt 2 und 3 stehen dort gar nicht), das [hidden] greift nur in
+   den PHP-Antworten und in der JavaScript-Fassung, siehe assets/js/anfrage.js. */
+.formular-schritt[hidden] { display: none; }
+.formular-schritt__kopf { margin-bottom: var(--raum-3); }
+.formular-schritt__einleitung { color: var(--beton); max-width: var(--lesebreite); }
+
+/* .formular-ausweg (der "lieber gleich anrufen"-Absatz oberhalb des
+   Formulars) sowie .kacheln (Schritt-1-Auswahlkacheln) stehen jetzt in
+   basis.css, siehe Begruendung im Dateikopf. */
+
+/* ------------------------------------------------------------------ Felder */
+.feld { display: block; margin: 0 0 var(--raum-3); max-width: 26rem; }
+.feld--breit { max-width: var(--lesebreite); }
+/* Beschriftungen stehen in der Displayschrift: sie sind Bedienung, nicht
+   Lesetext, und heben sich so ohne zusaetzliche Farbe vom Feldinhalt ab. */
+.feld > span, .feld > label {
+  display: block; margin-bottom: .4rem;
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-size: .9375rem; font-weight: 700; letter-spacing: -.005em;
+}
+.feld .hinweis { display: block; font-weight: 400; font-size: .8125rem; color: var(--beton); margin-top: .3rem; }
+.feld input[type="text"], .feld input[type="tel"], .feld input[type="email"],
+.feld select, .feld textarea {
+  display: block; width: 100%; padding: .7rem .8rem; font: inherit;
+  color: var(--grund); background: var(--papier); border: 1px solid var(--linie-stark);
+  border-radius: var(--rund);
+  transition: border-color var(--dauer-ui) ease;
+}
+.feld textarea { min-height: 7.5rem; resize: vertical; }
+.feld input:focus-visible, .feld select:focus-visible, .feld textarea:focus-visible {
+  outline: 3px solid var(--signal); outline-offset: 2px;
+}
+.feld--fehler input, .feld--fehler select, .feld--fehler textarea { border-color: var(--signal); }
+.feld__fehlertext { display: block; color: var(--signal-dunkel); font-size: .875rem; margin-top: .35rem; }
+
+/* Telefon-oder-E-Mail-Paar nebeneinander ab Tablet, damit klar wird: eines
+   von beiden reicht. */
+.feldpaar { display: grid; gap: var(--raum-2); max-width: var(--lesebreite); }
+@media (min-width: 40rem) {
+  .feldpaar { grid-template-columns: 1fr 1fr; }
+}
+.feldpaar .feld { max-width: none; margin-bottom: 0; }
+.feldpaar__oder {
+  grid-column: 1 / -1; margin: -.5rem 0 0; font-size: .8125rem; color: var(--beton);
+}
+
+/* Formular-technisches Feld (Honigtopf): steht wie .fortschritt und .kacheln
+   in basis.css statt hier, aus demselben Grund. War das eigentlich
+   uebersehene Stueck bei der CLS-Behebung zu Task 16: das Feld steht in
+   Schritt 1 direkt vor .formular-knoepfe im Dokument, floss also, solange
+   diese Regel fehlte, ganz normal mit und schob den Knopf (und alles
+   darunter, auch den Fuss) sichtbar nach unten, bis diese Datei nachlud und
+   das Feld aus dem Fluss nahm. */
+
+/* ----------------------------------------------------------------- Hinweise */
+/* Kein Kasten mit Fuellung, sondern eine kraeftige Kante links: die Meldung
+   gehoert zum Formular, sie ist keine eigene Karte. */
+.formular-fehler {
+  margin: 0 0 var(--raum-3); padding: var(--raum-2) 0 var(--raum-2) var(--raum-2);
+  border-left: 3px solid var(--signal);
+  max-width: var(--lesebreite);
+}
+.formular-fehler p { margin: 0 0 .35rem; font-weight: 700; }
+.formular-fehler ul { margin: 0; }
+.formular-fehler a { color: var(--signal); }
+
+.formular-zusage {
+  margin-top: var(--raum-2); max-width: var(--lesebreite); font-size: .9375rem; color: var(--beton);
+}
+
+/* .formular-knoepfe (Layout der Weiter-/Zurueck-/Absenden-Knoepfe) steht wie
+   .fortschritt und .kacheln in basis.css, aus demselben Grund: auf Schritt 1
+   oberhalb der Falz, siehe Kommentar im Dateikopf. */
+
+/* -------------------------------------------------------------------- Danke */
+.danke { max-width: var(--lesebreite); }
+.danke__schritte { margin-top: var(--raum-3); }
+
+@media print {
+  .formular-ausweg, .aktionsleiste { display: none; }
+}

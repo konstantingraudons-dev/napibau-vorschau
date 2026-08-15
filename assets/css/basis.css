@@ -1,0 +1,1193 @@
+/* Gestaltungssystem NAPIBAU. Charakter: editorial-industriell.
+   Ein Bauunternehmen liefert Flaechen und Kanten, keine Verlaeufe. Deshalb:
+   getoentes Papier statt Weiss, warme Tinte statt Schwarz, Haarlinien statt
+   Kaesten, genau eine Signalfarbe (Ziegel) und zwei bis drei bewusst dunkle
+   Baender je Seite als Rhythmuswechsel. Zwei Schriften mit grossem Kontrast:
+   Archivo als Display, Source Serif 4 als Lesetext.
+
+   Die mit "@kritisch"-Marken eingefassten Bloecke werden von kritisch.py
+   nach vorlagen/kritisch.css.inc uebertragen und dort inline in jede Seite
+   eingebettet. Wer in einem markierten Block etwas aendert, ruft
+   "uv run python kritisch.py" auf; pruefe.py haelt beides zeichengenau
+   gegeneinander. */
+
+/* @kritisch-anfang */
+/* --------------------------------------------------------------- Schrift */
+/* Lokal ausgeliefert, kein Fremdserver: Ladezeit und Datenschutz. Beide
+   Familien stehen unter der SIL Open Font License 1.1 (Lizenztexte in
+   assets/schrift/) und sind mit schrift.py auf die tatsaechlich benutzten
+   Zeichen beschnitten. Archivo (Omnibus Type) traegt die Ueberschriften,
+   Source Serif 4 (Adobe), hier "Quelle", den Lesetext. */
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/assets/schrift/archivo-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Quelle";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/schrift/quelle-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Quelle";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/assets/schrift/quelle-600.woff2") format("woff2");
+}
+/* Ersatzschriften mit angeglichenen Metriken. Solange die echte Datei noch
+   laedt, setzt der Browser eine Systemschrift; ohne diese Angleichung
+   springt das Layout beim Tausch, und genau das ist der klassische Weg,
+   CLS zu ruinieren. size-adjust gleicht die mittlere Zeichenbreite an,
+   ascent/descent die Zeilenbox. Werte gemessen, siehe schrift.py. */
+@font-face {
+  font-family: "Archivo Ersatz";
+  src: local("Helvetica Neue Bold"), local("Helvetica Bold"), local("Arial Bold"), local("Arial");
+  font-weight: 700;
+  size-adjust: 98.7%;
+  ascent-override: 89%;
+  descent-override: 21.3%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Quelle Ersatz";
+  src: local("Georgia"), local("Times New Roman"), local("Times");
+  size-adjust: 107.5%;
+  ascent-override: 96.4%;
+  descent-override: 31.2%;
+  line-gap-override: 0%;
+}
+
+/* ----------------------------------------------------------------- Token */
+:root {
+  /* Alle Neutralen sind warm getoent, Richtung Ziegel. Kein reines Schwarz,
+     kein neutrales Grau: beides laesst eine Seite billig aussehen. */
+  --grund: #1b1714;        /* Tinte, warm, 16,9:1 auf Papier */
+  --beton: #5b524a;        /* Sekundaertext, 7,3:1 auf Papier */
+  --papier: #fbf9f6;       /* Papierweiss mit Farbstich */
+  --papier-tief: #f3efe9;  /* zurueckgesetzte Flaeche, z. B. Fussbereich */
+  --linie: #e3ddd4;        /* Haarlinie, ersetzt Karten und Kaesten */
+  --linie-stark: #877c70;  /* nur Bedienelemente, dort sind 3:1 Pflicht */
+  --signal: #a8371a;       /* Ziegel, die EINZIGE Farbe, 6,2:1 auf Papier */
+  --signal-dunkel: #832a13;
+  /* Das dunkle Band. Dunkel heisst getoent dunkel, nicht #000. */
+  --nacht: #191512;
+  --nacht-papier: #f2ece3; /* 15,5:1 auf Nacht */
+  --nacht-beton: #a99e91;  /* 6,9:1 auf Nacht */
+  --nacht-linie: #3b332b;
+  --nacht-kante: #6f6459;
+  --signal-hell: #e0855f;  /* 6,6:1 auf Nacht */
+  --raum-1: .5rem; --raum-2: 1rem; --raum-3: 2rem; --raum-4: 4rem; --raum-5: 7rem;
+  --breite: 74rem;
+  --lesebreite: 36rem;     /* rund 68 Zeichen im Serifensatz */
+  --bahn-rand: clamp(1.25rem, 5vw, 3rem);
+  --rund: 0;               /* keine abgerundeten Ecken, Druckstil */
+  /* Bewegung: eigene Kurven, kurze Dauern. ease-in kommt auf UI nie vor. */
+  --kurve-aus: cubic-bezier(.23, 1, .32, 1);
+  --kurve-ios: cubic-bezier(.32, .72, 0, 1);
+  --dauer-druck: 140ms;
+  --dauer-ui: 200ms;
+  --dauer-zeigen: 460ms;
+}
+
+/* ------------------------------------------------------------------ Satz */
+* { box-sizing: border-box; }
+/* overflow-x: clip, weil die dunklen Baender ihren Grund ueber die volle
+   Fensterbreite ziehen (100vw). 100vw enthaelt die Breite des Rollbalkens,
+   die dunkle Flaeche waere also um wenige Pixel breiter als der sichtbare
+   Bereich und erzeugte ohne dieses clip einen waagerechten Rollbalken.
+   clip statt hidden: es scrollt nichts, und der senkrechte Rollfluss sowie
+   position: sticky bleiben unberuehrt. */
+html { -webkit-text-size-adjust: 100%; overflow-x: clip; }
+body {
+  margin: 0; background: var(--papier); color: var(--grund);
+  font: 400 clamp(1.0625rem, 1.01rem + .24vw, 1.1875rem)/1.6
+        "Quelle", "Quelle Ersatz", Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+  font-kerning: normal;
+}
+/* Zwei Schriften, klare Aufgabenteilung: alles, was ruft, steht in Archivo,
+   alles, was gelesen wird, in Quelle. Der Groessenabstand zwischen h1 und
+   Fliesstext betraegt auf dem Telefon rund das Dreifache, auf grossen
+   Schirmen das Viereinhalbfache. */
+/* Umbruch: getrennt statt zerhackt. overflow-wrap: break-word stand hier bis
+   zum 12.08.2026 und schnitt lange Komposita mitten im Wort auseinander, weil
+   die Ueberschrift bis 5,5 rem gross wird und "Innenausbau" dann breiter ist
+   als die Spalte: die Leistungsseite las sich als "gewerblich | er Innenausb |
+   au in Hamburg". Die Trennung uebernimmt jetzt der Silbentrenner (das
+   Dokument traegt lang="de"), und break-word bleibt nur als letzte Rettung
+   fuer den Fall, dass ein einzelnes Wort selbst getrennt nicht passt. */
+/* Umbruch: getrennt statt zerhackt. Bis zum 12.08.2026 stand hier allein
+   overflow-wrap: break-word, und das schnitt lange Komposita mitten im Wort
+   auseinander, sobald die Ueberschrift breiter wurde als ihre Spalte: die
+   Leistungsseite las sich als "gewerblich | er Innenausb | au", ein
+   Abschnittskopf in der schmalen Marginalienspalte als "Einkaufszentru | m".
+   Die Trennung uebernimmt jetzt der Silbentrenner (das Dokument traegt
+   lang="de"), break-word bleibt nur als letzte Rettung fuer den Fall, dass
+   ein Wort auch getrennt nicht passt.
+
+   Zehn Zeichen als Untergrenze, fuenf davor, vier danach: damit werden echte
+   Komposita wie "Einkaufszentrum" oder "Lebensmittelbetriebe" getrennt,
+   kuerzere Woerter wie "rechtlich" aber nicht. Ein Trennstrich in einer
+   gesperrten Displayzeile faellt auf, also soll er nur dort stehen, wo er
+   etwas rettet. */
+h1, h2, h3, h4, .display {
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-weight: 700; line-height: 1.08; text-wrap: balance;
+  -webkit-hyphens: auto; hyphens: auto; hyphenate-limit-chars: 10 5 4;
+  overflow-wrap: break-word; margin: 0 0 var(--raum-2);
+}
+h1 { font-size: clamp(3rem, 2rem + 5.1vw, 5.5rem); letter-spacing: -.035em; line-height: .98;
+     /* Die h1 wird bis 5,5 rem gross, dort ist schon "Innenausbau" breiter
+        als seine Spalte: hier darf frueher getrennt werden. */
+     hyphenate-limit-chars: 8 4 4; }
+h2 { font-size: clamp(1.75rem, 1.35rem + 1.9vw, 2.75rem); letter-spacing: -.025em; }
+/* Steht die Ueberschrift als Marginalie neben ihrem Text, setzt sie schmaler.
+   Den Wert liefert der Abschnitt selbst (--kopf-grad, weiter unten). */
+.abschnitt__kopf h2 { font-size: var(--kopf-grad, clamp(1.75rem, 1.35rem + 1.9vw, 2.75rem)); }
+h3 { font-size: clamp(1.125rem, 1.05rem + .4vw, 1.4375rem); letter-spacing: -.015em; }
+h4 { font-size: 1rem; letter-spacing: -.01em; }
+p  { max-width: var(--lesebreite); margin: 0 0 var(--raum-2); }
+ul, ol { max-width: var(--lesebreite); margin: 0 0 var(--raum-2); padding-left: 1.15rem; }
+li { margin-bottom: .35rem; }
+strong { font-weight: 600; }
+small { font-size: .875rem; color: var(--beton); }
+a  { color: inherit; text-underline-offset: .18em; }
+:focus-visible { outline: 3px solid var(--signal); outline-offset: 3px; }
+/* main traegt tabindex="-1" nur als Ziel der Sprungmarke. Ein Rahmen um den
+   halben Bildschirm hilft dort niemandem, die Ueberschrift steht ja da. */
+main:focus, main:focus-visible { outline: none; }
+img { max-width: 100%; height: auto; display: block; }
+hr { border: 0; border-top: 1px solid var(--linie); margin: var(--raum-3) 0; }
+
+/* Fliesstext-Links tragen die Signalfarbe, damit der naechste Schritt
+   auffindbar bleibt. Reine Navigationslisten bleiben Tinte, sonst wird die
+   Seite bunt und der Effekt nutzt sich ab. */
+main p a, main dd a, .fliesstext a { color: var(--signal); }
+main li a { text-decoration-color: var(--linie-stark); }
+
+/* ---------------------------------------------------------------- Raster */
+.bahn { width: 100%; max-width: var(--breite); margin-inline: auto;
+        padding-inline: var(--bahn-rand); }
+.mass { max-width: var(--lesebreite); }
+/* Abschnitte trennt eine Haarlinie, nicht ein Kasten. Der Abstand liegt
+   ungleich: wenig ueber der Ueberschrift, viel darunter. So gehoert die Linie
+   sichtbar zum folgenden Abschnitt. */
+.abschnitt { padding-top: clamp(1.75rem, 2.5vw, var(--raum-3));
+             padding-bottom: clamp(3rem, 6vw, 5.5rem);
+             border-top: 1px solid var(--linie); }
+.abschnitt:first-child, .brotkrumen + .abschnitt { padding-top: var(--raum-3); }
+.abschnitt:first-child { border-top: 0; }
+/* Der Abschnittskopf traegt links eine kurze, kraeftige Marke statt einer
+   Zierlinie ueber die ganze Breite: sie zeigt den Anfang, nicht den Rahmen. */
+.abschnitt__kopf { margin-bottom: clamp(var(--raum-2), 3vw, var(--raum-3)); }
+.raster { display: grid; gap: var(--raum-3);
+          grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+/* Katalograster: jede Zelle steht unter ihrer eigenen Linie. */
+.raster--linien > li { border-top: 1px solid var(--linie); padding-top: var(--raum-2); }
+.raster h3 { margin-bottom: .35rem; }
+.raster h3 a, .aufzaehlung h3 a { text-decoration: none; }
+/* Lange Ortsnamen wie "Othmarschen/Nienstedten" muessen in der schmalen
+   Spalte umbrechen duerfen, sonst laufen sie in die Nachbarspalte. */
+.raster--eng { display: grid; gap: .15rem var(--raum-3);
+               grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+.raster--eng > li { -webkit-hyphens: auto; hyphens: auto; overflow-wrap: break-word;
+                    border-top: 1px solid var(--linie); padding: .5rem 0; margin: 0; }
+.raster--eng a { text-decoration: none; }
+/* Handlungselemente nebeneinander, auf schmalen Schirmen untereinander. */
+/* Auf dem Telefon stehen Handlungselemente untereinander und ueber die volle
+   Breite: gleich grosse Trefferflaechen, keine ausgefransten Kanten. Ab
+   Handbreite duerfen sie nebeneinander in ihrer natuerlichen Breite stehen. */
+.knopfreihe { display: grid; gap: .75rem; max-width: none;
+              margin-bottom: var(--raum-3); }
+@media (min-width: 30rem) {
+  .knopfreihe { display: flex; flex-wrap: wrap; }
+}
+.liste-blank { list-style: none; margin: 0; padding: 0; max-width: none; }
+/* Aufzaehlung mit Haarlinien statt Kaesten: das Trennmittel dieses Entwurfs. */
+.aufzaehlung { list-style: none; margin: 0; padding: 0; max-width: 46rem; }
+.aufzaehlung > li { margin: 0; padding: var(--raum-2) 0; border-top: 1px solid var(--linie); }
+.aufzaehlung > li:last-child { border-bottom: 1px solid var(--linie); }
+.vorspann { font-size: clamp(1.1875rem, 1.05rem + .7vw, 1.625rem); line-height: 1.42;
+            max-width: 34rem; margin-bottom: var(--raum-3); }
+.beton { color: var(--beton); }
+/* Kleine Auszeichnung ueber einer Ueberschrift: gesperrte Versalien in der
+   Displayschrift. Ersetzt die Icon-Deko, die dieses System nicht kennt. */
+.marke { display: block; font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+         font-weight: 700; font-size: .6875rem; letter-spacing: .18em;
+         text-transform: uppercase; color: var(--beton); margin-bottom: .75rem; }
+/* Ein kurzer Strich in der Signalfarbe vor der Auszeichnung. Er ist das
+   einzige farbige Element im Abschnittskopf und ersetzt das Symbol, das
+   dieses System nicht kennt: gerade genug Farbe, um den Anfang eines
+   Abschnitts zu markieren, zu wenig, um mit dem Handlungselement zu
+   konkurrieren. */
+.marke::before { content: ""; display: inline-block; vertical-align: .18em;
+                 width: 1.5rem; height: 2px; margin-right: .6rem;
+                 background: var(--signal); }
+
+/* @kritisch-ende */
+
+/* ------------------------------------------------------- Dunkles Band */
+/* Zwei dieser Baender je Seite, nie mehr: sie sind der Rhythmuswechsel,
+   nicht der Grundton. Der dunkle Grund laeuft ueber die volle Fensterbreite,
+   der Text bleibt in der Bahn. Das ist der Unterschied zwischen einem
+   Papierwechsel und einer riesigen Karte, und die Karte will hier niemand.
+   Alle Farbwerte werden lokal umdefiniert, damit jedes Bauteil darin ohne
+   Sonderregel stimmt. */
+.abschnitt--nacht {
+  --grund: var(--nacht-papier);
+  --beton: var(--nacht-beton);
+  --papier: var(--nacht);
+  --papier-tief: #221c18;
+  --linie: var(--nacht-linie);
+  --linie-stark: var(--nacht-kante);
+  --signal: var(--signal-hell);
+  --signal-dunkel: #efa585;
+  position: relative; isolation: isolate;
+  margin-inline: calc(-1 * var(--bahn-rand));
+  padding-inline: var(--bahn-rand);
+  padding-top: clamp(2.5rem, 6vw, 4.5rem);
+  padding-bottom: clamp(3rem, 7vw, 5.5rem);
+  border-top: 0;
+  /* Der Grund steht doppelt: einmal am Abschnitt selbst, damit Browser,
+     Pruefwerkzeuge und der Druck ihn dort finden, wo sie ihn suchen, und
+     einmal im ::before, das ihn ueber die volle Fensterbreite zieht. */
+  background-color: var(--nacht);
+  color: var(--nacht-papier);
+}
+/* Der Grund liegt in einem eigenen Element hinter dem Inhalt, weil nur so
+   die volle Fensterbreite erreichbar ist, ohne die Bahn zu verlassen.
+   Dezentes Korn statt flacher Flaeche: der Kunde lehnt Verlaeufe ab, und
+   eine grosse einfarbige Flaeche wirkt auf dem Schirm tot. */
+.abschnitt--nacht::before, .anfrage-block::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%);
+  background-color: var(--nacht);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='k'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23k)' opacity='.08'/%3E%3C/svg%3E");
+}
+.abschnitt--nacht + .abschnitt { border-top: 0; }
+
+/* @kritisch-anfang */
+/* ------------------------------------------------------------- Sprungziel */
+.sprungmarke { position: absolute; left: -9999px; top: 0; z-index: 20; }
+.sprungmarke:focus {
+  left: 0; background: var(--signal); color: var(--papier); font-weight: 700;
+  padding: .75rem 1.25rem; text-decoration: none;
+}
+
+/* ----------------------------------------------------------- Kopfbereich */
+/* Eine Zeile, umgebaut am 13.08.2026 auf Kundenwunsch: Wortmarke links,
+   Rubriken rechts, dahinter Hoerersymbol und Handlungsknopf. Vorher stand die
+   Rufnummer ausgeschrieben neben einem Zusatz "Bauunternehmen in Hamburg",
+   und die Rubriken hatten eine eigene zweite Zeile darunter.
+
+   Auf dem Telefon bleiben rechts nur Symbol und Klappknopf stehen, die
+   Rubriken erscheinen als Blatt unter dem Kopf. Deshalb traegt der Kopf
+   position: relative und einen z-index: das Blatt legt sich ueber den
+   Seitenanfang, statt ihn nach unten zu schieben. */
+.kopf { position: relative; z-index: 10;
+        border-bottom: 1px solid var(--grund); background: var(--papier); }
+.kopf__zeile { display: flex; flex-wrap: wrap; align-items: center;
+               gap: .5rem clamp(.75rem, 2vw, 1.75rem);
+               padding-block: .7rem; }
+/* Die Wortmarke schiebt alles Uebrige an den rechten Rand. */
+.wortmarke { display: inline-flex; align-items: center; margin-right: auto;
+             text-decoration: none; view-transition-name: wortmarke; }
+/* 98 Pixel Anzeigebreite auf dem Telefon, 110 ab Handbreite. Die Quelldatei
+   hat 219 Pixel, damit bleibt die Marke auch auf dichten Schirmen scharf.
+   Groesser darf sie erst mit dem Vektororiginal werden, siehe
+   PLATZHALTER.md (firma.logo_vektor). */
+.wortmarke__bild { width: 6.125rem; height: auto; }
+@media (min-width: 30rem) {
+  .wortmarke__bild { width: 6.875rem; }
+}
+.kopf__handlung { display: flex; align-items: center; gap: .5rem; }
+
+/* Das Hoerersymbol: quadratische Trefferflaeche von 44 Pixeln, Strich in
+   Tinte, kein gefuelltes Symbol. Beim Zeigen wechselt es in die Signalfarbe,
+   das ist die einzige Rueckmeldung, die ein reines Symbol geben kann. */
+.kopf__telefon { display: inline-flex; align-items: center; justify-content: center;
+                 width: 2.75rem; height: 2.75rem; margin-right: -.35rem;
+                 color: var(--grund); text-decoration: none;
+                 transition: color var(--dauer-ui) ease,
+                             transform var(--dauer-druck) var(--kurve-aus); }
+.kopf__telefon:active { transform: scale(.92); }
+.kopf__telefon-symbol { display: block; }
+
+/* -------------------------------------------------------------- Rubriken */
+.navi ul { display: flex; flex-wrap: wrap; gap: 0 clamp(.8rem, 2.2vw, 1.75rem);
+           list-style: none; margin: 0; padding: 0; max-width: none; }
+.navi li { margin: 0; }
+/* Rubriken in der Displayschrift, gesperrt und in Versalien: die Zeile liest
+   sich als Ordnung, nicht als Fliesstext, und braucht dabei weniger Hoehe. */
+.navi a { display: block; padding: .7rem 0; text-decoration: none;
+          font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+          font-weight: 700; font-size: clamp(.6875rem, .6rem + .3vw, .8125rem);
+          letter-spacing: .085em; text-transform: uppercase; }
+.navi [aria-current="page"] { color: var(--signal); box-shadow: inset 0 -2px var(--signal); }
+
+/* ------------------------------------------------------------ Klappmenue */
+/* Ergaenzt am 12.08.2026, am 13.08. nach oben rechts gezogen.
+
+   Progressive Enhancement, wie ueberall in diesem Projekt: der Knopf ist nur
+   sichtbar, wenn die Klasse "js" am Dokument haengt, und die Liste
+   verschwindet auch nur dann. Ohne Skript bleiben alle Rubriken offen
+   stehen, dann bricht die Zeile eben um. Sichtbar wird die Liste ueber
+   aria-expanded des Knopfes, nicht ueber eine zweite Klasse: so kann der
+   Zustand nicht zwischen Anzeige und Sprachausgabe auseinanderlaufen. */
+.burger { display: none; }
+.navi__handlung { display: none; }
+@media (max-width: 47.99rem) {
+  /* Der Klappknopf gehoert nach ganz rechts aussen, das Hoerersymbol davor.
+     Im Dokument steht die Navigation vor den Handlungen, weil das auf dem
+     Schreibtisch die sichtbare Reihenfolge ist; hier dreht eine einzelne
+     order-Regel die beiden. Die Tabreihenfolge weicht dadurch um genau ein
+     Element ab, und das ist der Preis dafuer, dass beide Layouts sonst
+     dieselbe Quelle teilen. */
+  .navi { order: 3; }
+  .js .burger {
+    display: flex; align-items: center; gap: .55rem;
+    min-height: 2.75rem; padding: 0 .1rem; border: 0; background: none; cursor: pointer;
+    font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+    font-weight: 700; font-size: .75rem; letter-spacing: .085em;
+    text-transform: uppercase; color: var(--grund);
+    transition: transform var(--dauer-druck) var(--kurve-aus);
+  }
+  .js .burger:active { transform: scale(.96); }
+  /* Drei Balken aus einem Element: der mittlere ist der Kasten selbst, die
+     beiden aeusseren sind seine Schatten. Beim Oeffnen wandern sie in die
+     Mitte und der Kasten dreht sich zum Kreuz. Nur transform, kein Layout. */
+  .burger__balken {
+    position: relative; flex: none; width: 1.125rem; height: 2px;
+    background: var(--grund);
+    transition: transform var(--dauer-ui) var(--kurve-aus),
+                background-color var(--dauer-ui) ease;
+  }
+  .burger__balken::before, .burger__balken::after {
+    content: ""; position: absolute; left: 0; width: 100%; height: 2px;
+    background: var(--grund);
+    transition: transform var(--dauer-ui) var(--kurve-aus);
+  }
+  .burger__balken::before { top: -6px; }
+  .burger__balken::after { top: 6px; }
+  .js .burger[aria-expanded="true"] .burger__balken { background: transparent; }
+  .js .burger[aria-expanded="true"] .burger__balken::before { transform: translateY(6px) rotate(45deg); }
+  .js .burger[aria-expanded="true"] .burger__balken::after { transform: translateY(-6px) rotate(-45deg); }
+
+  /* Das aufgeklappte Blatt haengt unter dem Kopf und legt sich ueber den
+     Seitenanfang, statt ihn nach unten zu schieben: ein Menue, das den Text
+     wegschiebt, laesst die Seite beim Schliessen zurueckspringen. */
+  .js .navi ul { display: none; }
+  .js .navi:has(.burger[aria-expanded="true"]) ul {
+    display: block; position: absolute; left: 0; right: 0; top: 100%;
+    padding: 0 var(--bahn-rand) var(--raum-2);
+    background: var(--papier); border-bottom: 1px solid var(--grund);
+    box-shadow: 0 12px 24px -12px rgba(27, 23, 20, .22);
+  }
+  .js .navi ul li { border-top: 1px solid var(--linie); }
+  .js .navi ul a { padding: .95rem 0; }
+  .js .navi__handlung { display: block; padding-top: var(--raum-2); border-top: 0; }
+  .js .navi__handlung .knopf { width: 100%; }
+  /* Der Handlungsknopf der Kopfzeile faellt weg: neben Symbol und Klappknopf
+     ist kein Platz (gemessen 220 statt 44 Pixel fuer die Handlungen, die
+     Zeile brach dadurch bei jeder Telefonbreite um). Im aufgeklappten Blatt
+     steht er wieder. Zwei Klassen im Selektor, weil ".kopf__knopf" allein
+     dieselbe Spezifitaet haette wie ".knopf" und im Blatt weiter oben steht:
+     die Media-Regel allein gewinnt dieses Duell nicht. */
+  .kopf__handlung .kopf__knopf { display: none; }
+}
+
+/* ------------------------------------------------------------ Brotkrumen */
+.brotkrumen { padding-block: var(--raum-2); font-size: .8125rem; color: var(--beton); }
+.brotkrumen ol { display: flex; flex-wrap: wrap; gap: 0 .45rem;
+                 list-style: none; margin: 0; padding: 0; max-width: none; }
+.brotkrumen li { margin: 0; }
+.brotkrumen li + li::before { content: "/"; margin-right: .45rem; color: var(--linie-stark); }
+.brotkrumen a { color: var(--beton); text-decoration: none; }
+.brotkrumen [aria-current="page"] { color: var(--grund); }
+
+/* --------------------------------------------------------------- Knoepfe */
+/* Fuehlbar: der Druck quittiert sofort mit einer knappen Skalierung. Nur
+   transform und Farbe, nichts, was Layout kostet. */
+.knopf {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 3.125rem; padding: .8rem 1.5rem; border: 1px solid transparent;
+  border-radius: var(--rund);
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-size: .9375rem; font-weight: 700; letter-spacing: .02em; line-height: 1.2;
+  text-align: center; text-decoration: none; cursor: pointer;
+  transition: background-color var(--dauer-ui) ease, color var(--dauer-ui) ease,
+              border-color var(--dauer-ui) ease, transform var(--dauer-druck) var(--kurve-aus);
+}
+.knopf:active { transform: scale(.972); }
+.knopf--signal { background: var(--signal); color: var(--papier); }
+.knopf--ruhig { background: transparent; color: var(--grund); border-color: var(--grund); }
+.knopf--klein { min-height: 2.625rem; padding: .5rem 1rem; font-size: .875rem; }
+.abschnitt--nacht .knopf--signal { background: var(--nacht-papier); color: var(--nacht); }
+.abschnitt--nacht .knopf--ruhig { color: var(--nacht-papier); border-color: var(--nacht-kante); }
+
+/* --------------------------------------------------------------- Startseite */
+/* Der erste Bildschirm ist asymmetrisch aufgeteilt: die Ueberschrift traegt
+   ihn allein und laeuft breiter als der Lesetext, das Foto haengt rechts in
+   den Seitenrand hinaus. Auf dem Telefon steht alles untereinander, das Foto
+   randlos. Handy zuerst, Desktop danach. */
+.hero { padding-bottom: clamp(2.5rem, 5vw, var(--raum-4)); }
+.hero h1 { margin-bottom: var(--raum-3); }
+.hero__bild { margin-top: var(--raum-3);
+              margin-inline: calc(-1 * var(--bahn-rand)); }
+.hero__bild figcaption { padding-inline: var(--bahn-rand); }
+/* Ab Tabletbreite wird aus dem Stapel eine ungleiche Aufteilung: die
+   Ueberschrift traegt die ganze Breite, darunter stehen Text und Handlung in
+   der schmaleren linken, das Foto in der breiteren rechten Spalte. Das Foto
+   ruecht nach oben in den Abstand unter der Ueberschrift hinein und laeuft
+   rechts ueber den Seitenrand hinaus: die Kante der Bahn wird sichtbar
+   ueberschritten, statt brav eingehalten. */
+@media (min-width: 62rem) {
+  .hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+          column-gap: var(--raum-4); align-items: start; }
+  .hero h1 { grid-column: 1 / -1; margin-bottom: var(--raum-4); max-width: 16ch; }
+  .hero .vorspann, .hero .knopfreihe { grid-column: 1; }
+  .hero__bild { grid-column: 2; grid-row: 2 / span 2; align-self: start;
+                margin: -3.25rem calc(-1 * var(--bahn-rand)) 0 0; }
+  .hero__bild figcaption { padding-inline: 0 var(--bahn-rand); }
+}
+
+/* Der Einstieg jeder Unterseite (der Abschnitt direkt hinter den
+   Brotkrumen) folgt ab Tabletbreite derselben Ungleichheit wie die
+   Startseite: die Ueberschrift steht allein in der schmaleren linken
+   Spalte, der ganze Text daneben. Ohne das steht auf jeder Unterseite eine
+   kurze Ueberschrift ueber einer halbleeren Seite, und genau diese
+   Gleichfoermigkeit war der Vorwurf. Die Auswahl ist strukturell, damit
+   keine der 18 Vorlagen dafuer eine Klasse tragen muss.
+   :has(> h1) schliesst /anfrage/ aus: dort steckt die Ueberschrift im
+   Formular, die linke Spalte bliebe leer. Diese Regeln stehen zwingend im
+   kritischen CSS: der Abschnitt sitzt auf jeder Unterseite oberhalb der
+   Falz, und ein spaeteres Umschalten auf zwei Spalten kostete auf /anfrage/
+   gemessene 0,363 CLS. */
+@media (min-width: 62rem) {
+  .brotkrumen + .abschnitt:has(> h1) {
+    display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    column-gap: var(--raum-4); align-items: start;
+  }
+  .brotkrumen + .abschnitt:has(> h1) > h1 { grid-column: 1; grid-row: 1 / span 99;
+                                            margin-bottom: 0; max-width: 14ch; }
+  .brotkrumen + .abschnitt:has(> h1) > :not(h1) { grid-column: 2; }
+  .brotkrumen + .abschnitt:has(> h1) > .bild--hoch { justify-self: start; }
+}
+
+/* Der seitliche Abschnittskopf, ergaenzt am 12.08.2026. Vorher stand jeder
+   Abschnitt gleich gebaut untereinander: Marke, Ueberschrift, Text, Linie, und
+   der Text hielt sich an die Lesebreite von 36 rem. Auf einem 1440 Pixel
+   breiten Schirm klebte damit alles am linken Rand, rechts blieben rund 700
+   Pixel leer, und die Stadtteilseiten lasen sich ueber 13000 Pixel als eine
+   einzige Spalte ohne Wechsel. Der gesetzte Fachbericht loest das seit jeher
+   gleich: die Ueberschrift steht als Marginalie neben ihrem Text, nicht
+   darueber. Der Kopf bekommt die schmale linke Spalte und bleibt oben stehen,
+   der Text rueckt in die Mitte der Bahn.
+
+   Ausgenommen bleibt, was die volle Breite braucht: die Raster, der Filter,
+   der Waehler, die Schrittfolge, der Dreisatz und der Anfrage-Block. Die
+   Auswahl ist strukturell ueber :has(), damit keine der 18 Vorlagen dafuer
+   eine Klasse tragen muss. Die Regel steht im kritischen CSS, weil der
+   zweite Abschnitt einer Seite noch oberhalb der Falz beginnen kann und ein
+   spaeteres Umschalten auf zwei Spalten dort CLS kostete. */
+@media (min-width: 62rem) {
+  .abschnitt:has(> .abschnitt__kopf):not(:has(.projektraster, .raster,
+      .raster--eng, .filter, .schrittfolge, .dreisatz,
+      .bildtafel, .anfrage-block)) {
+    display: grid;
+    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+    column-gap: var(--raum-4);
+    align-items: start;
+    /* Die Marginalie setzt schmaler als der Fliesstext daneben: eine
+       Ueberschrift, die neben statt ueber ihrem Text steht, konkurriert
+       sonst mit ihm. Als Variable, damit der lange Selektor nicht ein
+       viertes Mal wiederholt werden muss. */
+    --kopf-grad: clamp(1.5rem, 1.2rem + 1.1vw, 2.125rem);
+  }
+  .abschnitt:has(> .abschnitt__kopf):not(:has(.projektraster, .raster,
+      .raster--eng, .filter, .schrittfolge, .dreisatz,
+      .bildtafel, .anfrage-block)) > .abschnitt__kopf {
+    grid-column: 1; grid-row: 1 / span 99; margin-bottom: 0;
+  }
+  .abschnitt:has(> .abschnitt__kopf):not(:has(.projektraster, .raster,
+      .raster--eng, .filter, .schrittfolge, .dreisatz,
+      .bildtafel, .anfrage-block)) > :not(.abschnitt__kopf) {
+    grid-column: 2;
+  }
+}
+/* @kritisch-ende */
+
+/* --------------------------------------------------------- Anfrage-Block */
+/* Der Handlungsmoment steht als einziger fester Block jeder Seite auf der
+   dunklen Platte: er soll sich vom Lesefluss abheben, nicht in ihm
+   untergehen. */
+.anfrage-block {
+  display: grid; gap: var(--raum-3); margin-top: var(--raum-4);
+  --grund: var(--nacht-papier);
+  --beton: var(--nacht-beton);
+  --papier: var(--nacht);
+  --linie: var(--nacht-linie);
+  --linie-stark: var(--nacht-kante);
+  --signal: var(--signal-hell);
+  position: relative; isolation: isolate;
+  margin-inline: calc(-1 * var(--bahn-rand));
+  padding: clamp(2.5rem, 6vw, 4rem) var(--bahn-rand) clamp(2.5rem, 6vw, 4rem);
+  background-color: var(--nacht);
+  color: var(--nacht-papier);
+}
+.anfrage-block h2 { margin-top: 0; max-width: 20ch; }
+.anfrage-block__zusage { font-size: .9375rem; color: var(--nacht-beton); }
+.anfrage-block__wahl { display: flex; flex-direction: column; gap: .75rem; align-self: start; }
+.anfrage-block .knopf--signal { background: var(--nacht-papier); color: var(--nacht); }
+.anfrage-block .knopf--ruhig { color: var(--nacht-papier); border-color: var(--nacht-kante); }
+@media (min-width: 48rem) {
+  .anfrage-block { grid-template-columns: 1.35fr 1fr; gap: var(--raum-4); align-items: start; }
+}
+/* @kritisch-ende */
+
+/* @kritisch-anfang */
+/* ------------------------------------------------- Anfragestrecke, Schritt 1 */
+/* .fortschritt, .formular-ausweg und .kacheln gehoeren inhaltlich zur
+   Anfragestrecke (assets/css/anfrage.css), stehen aber ausnahmsweise hier statt
+   dort: alle drei sind auf /anfrage/ in Schritt 1 oberhalb der Falz sichtbar,
+   waehrend anfrage.css asynchron laedt (media="print"-Tausch in
+   vorlagen/anfrage.html) und keinen eigenen kritischen Zwilling besitzt. Ohne
+   diese Verschiebung sprang Schritt 1 beim Nachladen von anfrage.css aus
+   seiner ungestylten Anfangsdarstellung in sein endgueltiges Raster, gemessen
+   als CLS 0,59 bis 0,64 statt der geforderten 0,05 (Task 16, Messbericht). */
+.fortschritt {
+  display: flex; list-style: none; margin: 0 0 var(--raum-3); padding: 0; max-width: none;
+  border-top: 1px solid var(--grund); border-bottom: 1px solid var(--linie);
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-size: .75rem;
+}
+.fortschritt li {
+  flex: 1; padding: .8rem .25rem; text-align: center; color: var(--beton);
+  letter-spacing: .08em; text-transform: uppercase; border-right: 1px solid var(--linie);
+}
+.fortschritt li:last-child { border-right: 0; }
+.fortschritt li[aria-current="step"] {
+  color: var(--grund); font-weight: 700; box-shadow: inset 0 -3px var(--signal);
+}
+.formular-ausweg {
+  /* Keine eigene Unterkante: direkt darunter beginnt .fortschritt mit seiner
+     Oberlinie, und zwei Trennlinien uebereinander mit totem Raum dazwischen
+     lasen sich wie ein leeres Band (Browser-Sichtung 13.08.2026). Auf breiten
+     Fenstern endete die Absatzlinie zudem an der Lesebreite des Textes, die
+     Leiste darunter laeuft voll durch: zwei verschieden lange Striche. */
+  margin: 0 0 var(--raum-3); font-size: .9375rem; color: var(--beton);
+}
+/* Farbe allein reicht fuer einen Link im Fliesstext nicht (WCAG 1.4.1
+   "Use of Color"): --signal auf --beton misst nur wenig Kontrast zueinander.
+   Deshalb bleibt hier absichtlich die Standard-Unterstreichung stehen. */
+.formular-ausweg a { color: var(--signal); }
+/* Tastflaechen fuer eine einzelne, folgenreiche Auswahl. Keine Karten:
+   keine Fuellung, keine Rundung, kein Schatten. Auswahl zeigt sich in
+   Signalfarbe und Fettung, wie ueberall in diesem System. */
+.kacheln { border: 0; margin: 0 0 var(--raum-3); padding: 0; max-width: none; }
+.kacheln legend { padding: 0; margin-bottom: var(--raum-2); }
+.kacheln__gitter {
+  display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+.kachel {
+  position: relative; display: flex; align-items: center; gap: .65rem;
+  padding: 1.05rem 1.1rem; border: 1px solid var(--linie); cursor: pointer;
+  transition: border-color var(--dauer-ui) ease, transform var(--dauer-druck) var(--kurve-aus);
+}
+.kachel:active { transform: scale(.985); }
+.kachel span { font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+               font-weight: 700; font-size: .9375rem; }
+.kachel:has(input:checked) { border-color: var(--signal); box-shadow: inset 2px 0 var(--signal); }
+.kachel:has(input:checked) span { color: var(--signal); }
+.kachel:has(input:focus-visible) { outline: 3px solid var(--signal); outline-offset: 3px; }
+.formular-knoepfe { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: var(--raum-2); }
+/* Steht auf /kontakt/ neben dem Knopf und sagt, was danach kommt: wer auf
+   "Weiter" drueckt, soll wissen, dass er die Seite verlaesst und noch zwei
+   kurze Schritte vor sich hat. */
+.formular-knoepfe__hinweis { max-width: 24rem; font-size: .875rem; color: var(--beton); }
+/* Die Ueberschrift der Kachelauswahl ist auf der Kontaktseite eine echte
+   Frage im Fliesstext und kein Formularetikett in Versalien. */
+.kontaktformular .kacheln legend { font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+                                   font-weight: 700; font-size: 1.0625rem; letter-spacing: -.01em; }
+/* Formular-technisches Feld (Honigtopf): fuer Menschen unsichtbar, fuer ein
+   Programm, das blind jedes Eingabefeld ausfuellt, weiterhin vorhanden.
+   Steht hier statt in anfrage.css, weil es sonst bis zum Nachladen jener
+   Datei ganz normal mitfloss und Knopf und Fuss nach unten schob. */
+.leerfeld { position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px; overflow: hidden; }
+/* @kritisch-ende */
+
+/* @kritisch-anfang */
+/* ----------------------------------------------------------------- Bilder */
+/* Fotos bleiben Fotos: begrenzte Flaeche, keine Textueberlagerung, kein
+   dunkler Ueberzug. Die Vorlagen liefern hoechstens 1600 Pixel Breite,
+   deshalb gibt es keinen bildschirmfuellenden Hero. */
+.bild { display: block; }
+.bild img { width: 100%; }
+.bildtafel { margin: 0; }
+.bildtafel figcaption { margin-top: .85rem; padding-top: .5rem;
+                        border-top: 1px solid var(--linie);
+                        font-size: .8125rem; color: var(--beton); max-width: 30rem; }
+/* Zwei feste Zuschnitte statt beliebiger Hochformate: das Band unter der
+   Ueberschrift und die Kachel im Projektraster. Beide beschneiden, statt zu
+   verzerren. Der Zuschnitt steht auch im kritischen CSS, sonst springt das
+   Band beim Nachladen und kostet CLS. */
+.bild--band img { aspect-ratio: 16 / 10; object-fit: cover; }
+.bild--kachel img { aspect-ratio: 4 / 3; object-fit: cover; }
+.bild--hoch { max-width: 26rem; }
+.bild--hoch img { aspect-ratio: 3 / 4; object-fit: cover; }
+
+/* Das Bildband hinter dem Einstieg einer Unterseite. Es laeuft auf dem
+   Telefon randlos ueber die Fensterbreite und steht ab Tabletbreite in der
+   Bahn: der Ausschnitt ist dort ohnehin breit genug, und ein Foto, das den
+   Seitenrand ueberlaeuft, waere das dritte Element mit dieser Geste (Hero und
+   dunkles Band haben sie schon). Die Unterschrift bleibt immer in der Bahn.
+   Steht im kritischen CSS, weil das Band auf jeder Unterseite oberhalb oder
+   knapp unter der Falz liegt. */
+.bildband { margin: 0 calc(-1 * var(--bahn-rand)) clamp(2.5rem, 5vw, var(--raum-4)); }
+.bildband figcaption { padding-inline: var(--bahn-rand); }
+@media (min-width: 48rem) {
+  /* Das Band bricht rechts aus der Bahn aus und laeuft bis zum Fensterrand,
+     die Unterschrift bleibt in der Bahn stehen. calc(50% - 50vw) ist genau
+     der Abstand von der Bahnkante zum Fensterrand, denn die Bahn ist
+     zentriert. Das ist dieselbe Geste wie beim Hero-Foto der Startseite: eine
+     Kante, die sichtbar ueberschritten wird, statt brav eingehalten. Sie
+     kommt hoechstens zweimal je Seite vor, sonst nutzt sie sich ab.
+     Der senkrechte Rollbalken ist in 100vw enthalten; das clip auf html
+     (siehe ganz oben) faengt die wenigen Pixel ab. */
+  .bildband { margin-left: 0; margin-right: calc(50% - 50vw); }
+  .bildband figcaption { padding-inline: 0; }
+}
+
+/* Die Kennzeile im Einstieg der Stadtteilseiten: vier harte Angaben in einer
+   Reihe, getrennt durch Haarlinien statt Kaesten. Der Wert steht gross in der
+   Displayschrift, die Bezeichnung klein darueber. Zwei Spalten auf dem
+   Telefon, vier ab Handbreite: bei einer einzigen Spalte waere es eine Liste
+   und keine Zeile. */
+.kennzeile { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+             gap: 0; margin: var(--raum-3) 0 0; max-width: none;
+             border-top: 1px solid var(--grund); }
+.kennzeile > div { padding: .85rem var(--raum-2) .85rem 0;
+                   border-bottom: 1px solid var(--linie); }
+.kennzeile dt { font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+                font-size: .6875rem; font-weight: 700; letter-spacing: .14em;
+                text-transform: uppercase; color: var(--beton); margin-bottom: .3rem;
+                /* Gesperrte Versalien sind breit: "Davon Gewerbeflaechen" ragt
+                   auf dem Telefon sonst aus seiner Drittelspalte in die
+                   Nachbarspalte (gemessen: 133px Text in 88px Spalte). */
+                -webkit-hyphens: auto; hyphens: auto; hyphenate-limit-chars: 10 5 4; }
+.kennzeile dd { margin: 0; font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+                font-size: clamp(1rem, .93rem + .35vw, 1.25rem); font-weight: 700;
+                letter-spacing: -.015em; line-height: 1.15; }
+@media (min-width: 40rem) {
+  .kennzeile { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kennzeile > div + div { padding-left: var(--raum-2); border-left: 1px solid var(--linie); }
+}
+/* Die Zeile im Hero traegt drei Angaben, nicht vier. Eine vierte stand dort
+   bis zum 12.08.2026 und lautete "Stadtteile mit eigener Seite": das ist eine
+   Auskunft ueber die Website und nicht ueber die Firma, und sie legt noch
+   dazu die Suchmaschinenstruktur offen. Drei belegte Zahlen sind besser als
+   vier, von denen eine Fuellmaterial ist. Weil alle drei Werte einstellig
+   sind, stehen sie auch auf dem Telefon nebeneinander. */
+/* Auf der Kontaktseite traegt dieselbe Zeile keine Zahlen, sondern Wege:
+   Rufnummer, E-Mail, WhatsApp, Sitz. Eine Anschrift oder eine Adresse ist
+   laenger als "11", deshalb setzt sie dort kleiner und darf umbrechen. */
+.kennzeile__klein { font-size: .9375rem; line-height: 1.35; }
+.kennzeile a { color: var(--signal); text-decoration-thickness: 1px; }
+
+.kennzeile--hero { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Die drei Beschriftungen laufen verschieden hoch (auf dem Telefon vier,
+   drei und drei Zeilen), die Zahlen staenden sonst auf drei verschiedenen
+   Hoehen. Also jede Zelle als Saeule und die Zahl an die gemeinsame
+   Unterkante. Nur fuer die Hero-Variante: in der Kontakt-Variante stehen
+   Saetze statt Zahlen, die sollen oben beim Etikett bleiben. */
+.kennzeile--hero > div { display: flex; flex-direction: column; }
+.kennzeile--hero dd { margin-top: auto; }
+.kennzeile--hero > div + div { padding-left: .75rem; border-left: 1px solid var(--linie); }
+@media (min-width: 40rem) {
+  .kennzeile--hero > div + div { padding-left: var(--raum-2); }
+}
+/* Die Zeile schliesst den Einstieg ab und laeuft deshalb unter beiden Spalten
+   durch, nicht nur unter dem Text. Auf der Startseite genauso: dort steht sie
+   im Hero unter Vorspann, Knoepfen und Foto. */
+@media (min-width: 62rem) {
+  .brotkrumen + .abschnitt:has(> h1) > .kennzeile,
+  .hero > .kennzeile { grid-column: 1 / -1; margin-top: var(--raum-4); }
+  /* Das Hero-Foto sollte hier kurzzeitig ueber die Oberlinie der Belegzeile
+     ragen. Die Geste ist wieder heraus: unter dem Foto steht seine
+     Unterschrift, und die klebte dann an der Linie, statt Luft zu haben. Eine
+     Ueberlappung, die an einer Stelle traegt und an der anderen quetscht,
+     gehoert nur an die eine Stelle. Sie sitzt jetzt im Bildband der
+     Unterseiten, wo unter dem Bild nichts als Rand liegt. */
+}
+/* @kritisch-ende */
+
+/* --------------------------------------------------- Startseite, Gewichtung */
+/* Die acht Leistungen sind nicht gleich viel wert. Der Schwerpunkt bekommt
+   die kraeftige Linie, die groessere Ueberschrift und den ganzen Seitenlauf,
+   das Raster darunter die Haarlinie, die Begleitleistungen nur eine Zeile.
+   Die Gewichtung steckt in Groesse, Linie und Weissraum, nicht in Farbe. */
+.dreisatz { display: grid; gap: var(--raum-3); counter-reset: zusage; }
+.dreisatz p { max-width: 30rem; margin-bottom: 0; padding-top: var(--raum-2);
+              border-top: 1px solid var(--linie); }
+/* Die haengende Ziffer im Rand: das Kennzeichen eines gesetzten Berichts.
+   Sie ueberlappt die Trennlinie und laeuft auf breiten Schirmen in den
+   linken Rand hinaus. */
+.dreisatz p::before {
+  counter-increment: zusage; content: counter(zusage, decimal-leading-zero);
+  display: block; margin-top: -.2em; margin-bottom: .35rem;
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-size: .75rem; letter-spacing: .12em; color: var(--beton);
+}
+.dreisatz p:first-child { font-size: 1.1875rem; }
+@media (min-width: 60rem) {
+  .dreisatz { grid-template-columns: 1.4fr 1fr 1fr; gap: var(--raum-4); }
+}
+.schwerpunkt { border-top: 2px solid var(--grund); padding-top: var(--raum-2);
+               margin-bottom: var(--raum-4); }
+.schwerpunkt h3 { font-size: clamp(1.5rem, 1.15rem + 1.5vw, 2.25rem);
+                  letter-spacing: -.025em; }
+.schwerpunkt h3 a { text-decoration: none; }
+@media (min-width: 60rem) {
+  .schwerpunkt { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 var(--raum-4);
+                 align-items: start; }
+  .schwerpunkt h3 { grid-column: 1 / -1; max-width: 20ch; }
+  .schwerpunkt p { margin-bottom: 0; }
+}
+.nachsatz { max-width: 42rem; margin-top: var(--raum-3); padding-top: var(--raum-2);
+            border-top: 1px solid var(--linie); font-size: .9375rem; color: var(--beton); }
+.raster--bilder h3 { margin-top: .85rem; margin-bottom: .2rem; }
+.raster--bilder p { margin-bottom: 0; font-size: .875rem; }
+/* Weiterfuehrender Link nach einem Raster braucht Luft, sonst klebt er an der
+   ersten Spalte und sieht aus, als gehoere er dorthin. */
+.weiterlink { margin-top: var(--raum-3); font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+              font-size: .875rem; font-weight: 700; letter-spacing: .02em; }
+.weiterlink a { text-decoration-thickness: 2px; text-underline-offset: .28em; }
+/* Der Pfeil steht als eigenes Zeichen hinter dem Wort, damit er beim Zeigen
+   wandern kann, ohne die Trefferflaeche des Links zu verschieben (Regel: eine
+   Zeile, die sich unter dem Zeiger wegzieht, flackert an ihrer Kante). Er
+   liegt ausserhalb der Unterstreichung und traegt aria-hidden nicht noetig,
+   weil er als ::after-Inhalt ohnehin nicht vorgelesen wird. */
+.weiterlink a::after {
+  content: "\2192"; display: inline-block; margin-left: .5rem;
+  transition: transform var(--dauer-ui) var(--kurve-aus);
+}
+
+/* ------------------------------------------------------------ Projektblatt */
+/* Die Antwort auf „nicht so viele verschieden grosse Bilder nebeneinander“
+   (Kunde, 12.08.2026). Ein Rahmen, ein Seitenverhaeltnis, ein Ausschnitt,
+   auf allen vier Seiten, die Projekte zeigen: Startseite, Projektuebersicht,
+   Leistungs- und Stadtteilseiten.
+
+   Warum 4 zu 3 quer: von den neun veroeffentlichten Aufnahmen sind fuenf
+   genau 4 zu 3 (die bleiben also ungeschnitten), eine ist quadratisch, drei
+   sind hochformatig. Ein Hochformat-Rahmen wuerde die Mehrheit schwer
+   beschneiden und auf dem Telefon, wo eine Spalte steht, jede Kachel um ein
+   Drittel hoeher machen: die Uebersicht mit elf Projekten wuerde damit
+   endlos. Innenaufnahmen lesen sich ausserdem quer besser, weil Raumtiefe
+   waagerecht liegt.
+
+   Der Rahmen traegt sein Verhaeltnis selbst, deshalb steht die Flaeche fest,
+   bevor das Foto da ist: keine Verschiebung beim Nachladen. */
+.projektraster { display: grid; gap: var(--raum-3); grid-template-columns: minmax(0, 1fr);
+                 counter-reset: blatt; }
+.projektraster > li { margin: 0; counter-increment: blatt; }
+/* Haengende Ordnungszahl ueber einer Haarlinie, wie bei den Zusagen und den
+   Ablaufschritten. Sie gibt dem Raster den Katalogcharakter, den eine reine
+   Bilderreihe nicht hat. Der Zaehler laeuft in CSS, damit die Nummerierung
+   auch unter dem Filter lueckenlos bleibt: eine ausgeblendete Zeile erzeugt
+   keine Box und zaehlt deshalb nicht mit. */
+.projektraster > li::before {
+  content: counter(blatt, decimal-leading-zero);
+  display: block; margin-bottom: .6rem; padding-top: .45rem;
+  border-top: 1px solid var(--linie);
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-weight: 700; font-size: .6875rem; letter-spacing: .12em; color: var(--beton);
+}
+.projektraster h3 { margin: .85rem 0 .15rem; }
+.projektraster h3 a { text-decoration: none; }
+.projektraster p { margin-bottom: 0; max-width: 26rem; font-size: .875rem; }
+.projektblatt__rahmen { aspect-ratio: 4 / 3; overflow: hidden; background: var(--papier-tief); }
+.projektblatt__bild, .projektblatt__bild img { width: 100%; height: 100%; }
+.projektblatt__bild img { object-fit: cover; }
+/* Zwei Projekte haben kein veroeffentlichtes Foto. Statt eines Lochs steht
+   dort ein gesetztes Blatt: Art des Objekts in Versalien, darunter der Grund.
+   Gleicher Rahmen, gleiche Hoehe, also bleibt die Reihe ruhig. */
+.projektblatt__ohne {
+  display: flex; flex-direction: column; justify-content: flex-end;
+  height: 100%; margin: 0; max-width: none;
+  padding: .75rem; border: 1px solid var(--linie);
+  font-size: .75rem; line-height: 1.4; color: var(--beton);
+}
+@media (min-width: 34rem) {
+  .projektblatt__ohne { padding: var(--raum-2); font-size: .8125rem; }
+}
+.projektblatt__art {
+  display: block; margin-bottom: auto;
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-weight: 700; font-size: .6875rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--grund);
+}
+/* Die Uebersicht mit elf Projekten ist ein Katalog, kein Aufmacher: sie steht
+   auch auf dem Telefon zweispaltig. Einspaltig waere die Seite dort fast
+   8000 Pixel lang, und wer elf Projekte ueberfliegen will, will nicht elf
+   Bildschirme scrollen. Die vier ausgewaehlten Projekte auf der Startseite
+   bleiben dagegen einspaltig und gross. */
+.projektraster--katalog { grid-template-columns: repeat(2, minmax(0, 1fr));
+                          gap: var(--raum-3) var(--raum-2); }
+.projektraster--katalog h3 { font-size: 1rem; }
+@media (min-width: 34rem) {
+  .projektraster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .projektraster--katalog h3 { font-size: clamp(1.125rem, 1.05rem + .4vw, 1.4375rem); }
+}
+@media (min-width: 62rem) {
+  .projektraster, .projektraster--katalog {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--raum-4) var(--raum-3); }
+  /* Die Startseite zeigt vier ausgewaehlte Projekte, das ist eine Reihe und
+     keine Uebersicht. Vier gleiche Spalten: der Kunde hat unterschiedlich
+     grosse Bilder nebeneinander ausdruecklich abgelehnt, siehe
+     vorlagen/bausteine/projektblatt.html. Die Rangfolge macht hier die
+     Auswahl der Projekte, nicht ihre Groesse. */
+  .projektraster--reihe { grid-template-columns: repeat(4, minmax(0, 1fr));
+                          gap: var(--raum-3); }
+}
+
+/* ------------------------------------------------------------- Referenzen */
+/* Filter ohne JavaScript: Radioeingaben plus :has(). Hier steht nur, was von
+   den Daten unabhaengig ist. Die Regeln, die tatsaechlich ein Projekt
+   ausblenden, haengen an den Kategorie- und Stadtteil-Slugs und werden je
+   Seite in vorlagen/referenzen_hub.html erzeugt. */
+.filter { display: grid; gap: var(--raum-2); margin-bottom: var(--raum-3);
+          padding-bottom: var(--raum-2); border-bottom: 1px solid var(--grund); }
+.filter__gruppe { border: 0; margin: 0; padding: 0; min-width: 0; }
+.filter__titel { padding: 0; font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+                 font-size: .6875rem; font-weight: 700; letter-spacing: .16em;
+                 text-transform: uppercase; color: var(--beton); }
+/* position: relative, damit die absolut gesetzten Radioeingaben (.nur-vorlesen)
+   in dieser Zeile haengen und nicht in der linken oberen Ecke des Dokuments. */
+.filter__wahl { position: relative; display: flex; flex-wrap: wrap;
+                gap: .35rem var(--raum-2); margin-top: .6rem; }
+.filter__wahl label { cursor: pointer; font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+                      font-size: .9375rem; color: var(--beton);
+                      text-decoration: underline; text-decoration-color: var(--linie-stark);
+                      text-underline-offset: .25em;
+                      transition: color var(--dauer-ui) ease, transform var(--dauer-druck) var(--kurve-aus); }
+.filter__wahl label:active { transform: scale(.97); }
+.filter__wahl input:checked + label { color: var(--signal); font-weight: 700;
+                                      text-decoration-color: currentColor;
+                                      text-decoration-thickness: 2px; }
+.filter__wahl input:focus-visible + label { outline: 3px solid var(--signal); outline-offset: 3px; }
+.filter__wahl .anzahl { color: var(--beton); font-weight: 400; }
+/* Platzhalter fuer ein Projekt ohne veroeffentlichtes Foto. Gleiches
+   Seitenverhaeltnis wie die Bildkachel, damit das Raster ruhig bleibt. */
+.bild-ersatz { display: grid; place-items: center; aspect-ratio: 4 / 3; max-width: none;
+               margin: 0; padding: var(--raum-2); border: 1px solid var(--linie);
+               text-align: center; font-size: .8125rem; color: var(--beton); }
+/* Sichtbar nur ueber die je Seite erzeugten Regeln, wenn eine Filterkombination
+   kein Projekt trifft. */
+.leermeldung { display: none; margin-top: var(--raum-3); }
+
+/* Ein Aufmacher ueber zwei Spalten stand hier kurzzeitig am 12.08.2026 und
+   ist wieder entfernt: der Kunde hat unterschiedlich grosse Bilder
+   nebeneinander abgelehnt, und zwar fuer jede Flaeche dieser Website. Alle
+   elf Kacheln des Katalogs sind gleich gross, die Reihenfolge ordnet sie,
+   nicht ihr Format. Siehe vorlagen/bausteine/projektblatt.html. */
+
+/* -------------------------------------------------------- Ablauf und Daten */
+/* Nummerierung als gesetzte Ziffer im Rand, nicht als Aufzaehlungspunkt. */
+.schrittfolge { margin: 0; padding: 0; max-width: none; list-style: none;
+                counter-reset: schritt; }
+.schrittfolge > li { margin: 0 0 var(--raum-3); padding-top: var(--raum-2);
+                     border-top: 1px solid var(--linie); }
+.schrittfolge > li::before {
+  counter-increment: schritt; content: counter(schritt, decimal-leading-zero);
+  display: block; margin-bottom: .5rem;
+  font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+  font-size: .75rem; font-weight: 700; letter-spacing: .12em; color: var(--signal);
+}
+.schrittfolge h3 { margin-bottom: .35rem; }
+@media (min-width: 56rem) {
+  .schrittfolge > li { display: grid; grid-template-columns: 5rem 1fr 1.15fr;
+                       gap: 0 var(--raum-3); align-items: start; }
+  .schrittfolge > li::before { grid-row: 1 / span 2; margin-bottom: 0; padding-top: .35rem; }
+  .schrittfolge h3 { margin-bottom: 0; }
+  .schrittfolge p { margin-bottom: 0; }
+}
+/* Sprungliste auf langen Leistungsseiten: enge Zeilen, kleiner Grad. Sie soll
+   den Vorspann begleiten, nicht mit ihm konkurrieren. */
+.sprungliste { gap: 0 var(--raum-3); font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+               font-size: .8125rem;
+               margin-top: var(--raum-3); padding: 0;
+               border-top: 1px solid var(--grund); }
+.sprungliste > li { border-bottom: 1px solid var(--linie); padding: .55rem 0; margin: 0; }
+.sprungliste a { text-decoration: none; }
+
+/* ------------------------------------------------------------------- Fragen */
+/* Aufklappbare Fragen ohne JavaScript. Das Pluszeichen ersetzt das Dreieck des
+   Browsers, weil dieses je nach System anders aussieht und die einzige runde
+   Form auf der Seite waere. Ohne CSS bleibt es ein normales details-Element. */
+.fragen { max-width: 46rem; border-top: 1px solid var(--grund); }
+.frage { border-bottom: 1px solid var(--linie); }
+.frage > summary { display: flex; gap: var(--raum-2); align-items: baseline;
+                   justify-content: space-between; padding: var(--raum-2) 0;
+                   cursor: pointer; list-style: none;
+                   transition: transform var(--dauer-druck) var(--kurve-aus); }
+.frage > summary:active { transform: scale(.995); }
+.frage > summary::-webkit-details-marker { display: none; }
+.frage > summary::after { content: "+"; flex: none; font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+                          font-size: 1.25rem; line-height: 1; color: var(--signal); }
+.frage[open] > summary::after { content: "\2212"; }
+.frage h3 { margin: 0; }
+.frage__antwort > p:last-child { margin-bottom: var(--raum-2); }
+/* Kenndaten als Zeilen mit Haarlinie, nicht als Tabelle mit Rahmen. */
+.kenndaten { margin: 0; max-width: 44rem; }
+.kenndaten > div { display: grid; gap: .25rem 2rem; padding: .9rem 0;
+                   border-top: 1px solid var(--linie); }
+.kenndaten > div:last-child { border-bottom: 1px solid var(--linie); }
+.kenndaten dt { color: var(--beton); font-size: .875rem;
+                font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+                letter-spacing: .01em; }
+.kenndaten dd { margin: 0; }
+/* Anschriften im Inhalt stehen aufrecht, kursiv ist die Voreinstellung des
+   Browsers und passt weder zum Satz noch zur Lesbarkeit. */
+main address { font-style: normal; }
+@media (min-width: 40rem) {
+  .kenndaten > div { grid-template-columns: 18rem 1fr; align-items: baseline; }
+}
+
+/* @kritisch-anfang */
+/* ---------------------------------------------------------------- Fussbereich */
+.fuss { margin-top: 0; border-top: 1px solid var(--grund);
+        background: var(--papier-tief);
+        padding-block: clamp(2.5rem, 5vw, var(--raum-4)) var(--raum-2); font-size: .9375rem; }
+.fuss__spalten { display: grid; gap: var(--raum-3);
+                 grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+.fuss__titel { margin: 0 0 .85rem; font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+               font-size: .6875rem; font-weight: 700;
+               letter-spacing: .16em; text-transform: uppercase; color: var(--beton); }
+.fuss ul { list-style: none; margin: 0; padding: 0; max-width: none; }
+/* Ein Fusslink ist rund 21 Pixel hoch. Die 44 Pixel einer Fingerkuppe
+   erreicht er in einer Linkliste nie, ohne dass die Liste doppelt so lang
+   wuerde. Was er stattdessen braucht, ist Luft zwischen den Zielen: mit .4rem
+   lagen zwei Ziele 27 Pixel auseinander, mit .65rem sind es 31, und der
+   Fehlgriff auf die Nachbarzeile wird deutlich seltener. */
+.fuss li { margin-bottom: .65rem; }
+.fuss a { display: inline-block; padding-block: .15rem; text-decoration: none; }
+.fuss address { font-style: normal; }
+.fuss__schluss { display: flex; flex-wrap: wrap; justify-content: space-between;
+                 gap: .5rem var(--raum-3); margin-top: var(--raum-4);
+                 padding-top: var(--raum-2); border-top: 1px solid var(--linie);
+                 color: var(--beton); font-size: .8125rem; }
+.fuss__schluss ul { display: flex; flex-wrap: wrap; gap: 0 var(--raum-2); }
+.fuss__schluss li { margin: 0; }
+/* Schlanker Fuss der Anfragestrecke: Anschrift, Draht, die zwei
+   Pflichtseiten. Keine Linklisten, siehe vorlagen/bausteine/fuss.html. */
+.fuss--schlank { font-size: .875rem; }
+.fuss--schlank .fuss__schluss { margin-top: var(--raum-2); }
+/* @kritisch-ende */
+
+/* ---------------------------------------------------- Mobile Aktionsleiste */
+/* Erscheint erst ab 25 Prozent Scrolltiefe und bleibt weg, wenn sie einmal
+   ausgeblendet wurde. Auf der dunklen Platte, damit sie ueber jedem Inhalt
+   klar abgesetzt steht. */
+/* @kritisch-anfang */
+.aktionsleiste { display: none; }
+@media (max-width: 47.99rem) {
+  .aktionsleiste {
+    position: fixed; inset: auto 0 0 0; z-index: 15;
+    display: grid; grid-template-columns: 1fr 1fr auto; align-items: stretch;
+    background: var(--nacht); color: var(--nacht-papier);
+    transform: translateY(100%); visibility: hidden;
+    transition: transform 260ms var(--kurve-ios), visibility 260ms;
+  }
+  .aktionsleiste--sichtbar { transform: none; visibility: visible; }
+  .aktionsleiste__flaeche {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 3.375rem; padding: .75rem .5rem;
+    font-family: "Archivo", "Archivo Ersatz", Helvetica, Arial, sans-serif;
+    font-size: .875rem; font-weight: 700; letter-spacing: .02em; text-decoration: none;
+    transition: transform var(--dauer-druck) var(--kurve-aus);
+  }
+  .aktionsleiste__flaeche:active { transform: scale(.97); }
+  .aktionsleiste__flaeche + .aktionsleiste__flaeche { border-left: 1px solid var(--nacht-linie); }
+  .aktionsleiste__flaeche--signal { background: var(--nacht-papier); color: var(--nacht);
+                                    border-left-color: var(--nacht-papier); }
+  .aktionsleiste__zu {
+    border: 0; border-left: 1px solid var(--nacht-linie); background: transparent;
+    color: var(--nacht-beton); font: inherit; font-size: .75rem; padding: 0 .9rem; cursor: pointer;
+    transition: transform var(--dauer-druck) var(--kurve-aus);
+  }
+  .aktionsleiste__zu:active { transform: scale(.94); }
+  .fuss { padding-bottom: 4.75rem; }
+  /* Auf der Anfragestrecke gibt es keine Aktionsleiste, also braucht der
+     Fuss dort auch keinen Platz fuer sie freizuhalten. */
+  .fuss--schlank { padding-bottom: var(--raum-2); }
+}
+/* @kritisch-ende */
+
+/* @kritisch-anfang */
+/* -------------------------------------------------------------- Sonstiges */
+.platzhalter { background: #fff3cd; outline: 1px dashed #b8860b; padding: 0 .25em;
+               color: #4a3a08; }
+.nur-vorlesen { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                clip-path: inset(50%); white-space: nowrap; }
+/* @kritisch-ende */
+
+/* ------------------------------------------------------------------ Hover */
+/* Nur dort, wo es einen Zeiger gibt. Auf dem Telefon kostet ein Hover-Zustand
+   nur einen haengenden Rest nach dem Antippen. */
+@media (hover: hover) and (pointer: fine) {
+  main p a:hover, main dd a:hover, .fliesstext a:hover { color: var(--signal-dunkel); }
+  main li a:hover { text-decoration-color: currentColor; }
+  .knopf--signal:hover { background: var(--signal-dunkel); }
+  .knopf--ruhig:hover { background: var(--grund); color: var(--papier); }
+  .abschnitt--nacht .knopf--ruhig:hover, .anfrage-block .knopf--ruhig:hover {
+    background: var(--nacht-papier); color: var(--nacht); border-color: var(--nacht-papier); }
+  .abschnitt--nacht .knopf--signal:hover, .anfrage-block .knopf--signal:hover {
+    background: var(--signal-hell); color: var(--nacht); }
+  .kopf__telefon:hover, .navi a:hover, .fuss a:hover, .brotkrumen a:hover,
+  .raster h3 a:hover, .aufzaehlung h3 a:hover, .schwerpunkt h3 a:hover,
+  .raster--eng a:hover, .sprungliste a:hover { text-decoration: underline; }
+  .kachel:hover { border-color: var(--linie-stark); }
+  .frage > summary:hover h3 { text-decoration: underline; }
+  .filter__wahl label:hover { color: var(--grund); }
+  /* Der Pfeil wandert, nicht die Trefferflaeche: eine Zeile, die sich unter
+     dem Zeiger wegzieht, flackert an ihrer Kante. */
+  .weiterlink a:hover { text-decoration-color: var(--signal); }
+  .weiterlink a:hover::after { transform: translateX(.3rem); }
+
+  /* Das Foto im Rahmen ruecht beim Zeigen naeher heran. Der Rahmen selbst
+     bleibt stehen, beschnitten wird ohnehin: also bewegt sich nichts, was
+     angeklickt werden soll, und die Reihe bleibt ruhig. Zweck ist nicht
+     Zierde, sondern die Auskunft, dass diese Flaeche ein Weg ist: die Kachel
+     traegt keinen Knopf und keinen Rahmenwechsel, der das sonst zeigen
+     wuerde. Nur transform, also kein Layout und kein Neuzeichnen. */
+  .projektraster > li:hover .projektblatt__bild img { transform: scale(1.028); }
+  .projektraster > li:hover h3 a { text-decoration: underline; }
+}
+.projektblatt__bild img { transition: transform var(--dauer-zeigen) var(--kurve-aus); }
+
+/* Die ganze Kachel ist der Link, nicht nur die Ueberschrift. Wer auf ein
+   Projektfoto zeigt, erwartet, dass es sich oeffnet; bis zum 12.08.2026 traf
+   nur die Zeile darunter. Umgesetzt ueber eine unsichtbare Flaeche am
+   bestehenden Link statt ueber einen zweiten Link um die Kachel: so bleibt es
+   ein einziges Ziel in der Tabreihenfolge und eine einzige Ansage fuer die
+   Sprachausgabe.
+
+   Der Nachtrag mit z-index ist noetig, weil die Zeile unter dem Titel auf den
+   Stadtteilseiten eigene Verweise traegt ("im Nachbarstadtteil Bahrenfeld").
+   Ohne ihn laegen die unter der Flaeche und waeren nicht mehr erreichbar. */
+.projektraster > li { position: relative; }
+.projektraster h3 a::after { content: ""; position: absolute; inset: 0; z-index: 0; }
+.projektraster > li p a { position: relative; z-index: 1; }
+
+/* --------------------------------------------------------------- Bewegung */
+/* Bewegung hat hier genau zwei Aufgaben: sie zeigt, dass ein Abschnitt neu
+   ins Bild kommt, und sie quittiert einen Druck. Alles andere waere
+   Selbstzweck. Animiert werden ausschliesslich transform und opacity.
+   Die Klasse "js" setzt ein Einzeiler im Kopf der Seite; ohne JavaScript
+   greift keine dieser Regeln, dann steht der Inhalt sofort da. */
+/* @kritisch-anfang */
+.js .einblenden { opacity: 0; transform: translateY(14px);
+                  transition: opacity var(--dauer-zeigen) var(--kurve-aus),
+                              transform var(--dauer-zeigen) var(--kurve-aus); }
+.js .einblenden.sichtbar { opacity: 1; transform: none; }
+/* Staffelung in Listen: 45 ms Versatz, aber nur fuer die ersten sechs
+   Eintraege. Alles danach erscheint ohne Verzoegerung mit dem Abschnitt,
+   damit eine lange Liste nie auf eine Animation warten muss. */
+.js .einblenden .raster--bilder > li,
+.js .einblenden .projektraster > li,
+.js .einblenden .aufzaehlung > li,
+.js .einblenden .schrittfolge > li {
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 380ms var(--kurve-aus), transform 380ms var(--kurve-aus);
+}
+.js .einblenden.sichtbar .raster--bilder > li,
+.js .einblenden.sichtbar .projektraster > li,
+.js .einblenden.sichtbar .aufzaehlung > li,
+.js .einblenden.sichtbar .schrittfolge > li { opacity: 1; transform: none; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(2) { transition-delay: 45ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(3) { transition-delay: 90ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(4) { transition-delay: 135ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(5) { transition-delay: 180ms; }
+.js .einblenden.sichtbar :is(.raster--bilder, .projektraster, .aufzaehlung, .schrittfolge) > :nth-child(6) { transition-delay: 225ms; }
+
+/* Fotos kommen nicht nur herein, sie ruecken dabei auch heran: das Bild
+   startet vier Prozent zu gross und faehrt auf seine Groesse zurueck, im
+   Rahmen, der ohnehin beschneidet. Zusammen mit dem Versatz der Kachel ergibt
+   das eine Bewegung mit Tiefe statt eines Einblendens in der Flaeche.
+
+   Ausgenommen ist das Bildband mit Vorrang, also das LCP-Element jeder
+   Unterseite: es traegt kein loading="lazy" und erscheint deshalb sofort und
+   unbewegt. Ein Bild, das erst nach einer Animation seine Endgroesse
+   erreicht, verschiebt den gemessenen groessten Inhalt nach hinten, und die
+   Ladezeit ist wichtiger als der Auftritt. */
+.js .einblenden .projektblatt__bild img,
+.js .einblenden .bildband:has(img[loading="lazy"]) img {
+  transform: scale(1.04);
+  transition: transform var(--dauer-zeigen) var(--kurve-aus);
+}
+.js .einblenden.sichtbar .projektblatt__bild img,
+.js .einblenden.sichtbar .bildband:has(img[loading="lazy"]) img { transform: none; }
+/* @kritisch-ende */
+
+/* ------------------------------------------------------ Bewegung im Bild */
+/* Hier stand am 12.08.2026 ein Parallax im Bildband: das Foto sollte beim
+   Scrollen langsamer wandern als die Seite, ueber eine scrollgesteuerte
+   Zeitleiste (animation-timeline: view()) und damit ohne eine Zeile
+   JavaScript. Die Zeitleiste blieb in Chrome 151 nachweislich stehen, im
+   zeichnenden Browser genauso wie im nicht zeichnenden: der Bildversatz war
+   ueber den gesamten Scrollverlauf konstant, obwohl playState auf "running"
+   stand und eine ViewTimeline haengt. Die Ursache liess sich nicht in
+   vertretbarer Zeit finden, und ein Effekt, der nicht laeuft, gehoert nicht
+   ins Blatt. Wer es erneut versucht: animation-duration MUSS "auto" sein
+   (die Kurzform "animation: name linear both" setzt sie auf 0s), und das
+   Seitenverhaeltnis muss am Rahmen stehen, nicht am Bild, sonst ist die
+   Bildhoehe "112 Prozent von auto".
+
+   Die Bewegung sitzt stattdessen dort, wo sie nachweislich greift: beim
+   Erscheinen (weiter unten, ueber den Beobachter in assets/js/seite.js) und
+   beim Zeigen auf eine Kachel (Abschnitt "Hover"). */
+
+/* @kritisch-anfang */
+/* Seitenwechsel. Statisch erzeugte Seiten wechseln sonst hart; ein kurzes
+   Ueberblenden verhindert den Sprung und haelt die Wortmarke an ihrem Platz.
+   Cross-Document, deshalb ohne eine Zeile JavaScript. */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: seite-weg 120ms ease forwards; }
+::view-transition-new(root) { animation: seite-her 220ms var(--kurve-aus) forwards; }
+@keyframes seite-weg { to { opacity: 0; } }
+@keyframes seite-her { from { opacity: 0; transform: translateY(6px); } }
+/* @kritisch-ende */
+
+/* @kritisch-anfang */
+@media (prefers-reduced-motion: reduce) {
+  .js .einblenden,
+  .js .einblenden .raster--bilder > li,
+  .js .einblenden .projektraster > li,
+  .js .einblenden .aufzaehlung > li,
+  .js .einblenden .schrittfolge > li,
+  .js .einblenden .projektblatt__bild img,
+  .js .einblenden .bildband img { opacity: 1; transform: none; transition: none; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+/* @kritisch-ende */
+
+/* Druck: Handlungselemente und Navigation sind auf Papier sinnlos. */
+@media print {
+  .aktionsleiste, .sprungmarke, .navi, .anfrage-block__wahl { display: none; }
+  /* Auf Papier gibt es kein Scrollen, also darf nichts eingeblendet warten. */
+  .js .einblenden, .js .einblenden .raster--bilder > li,
+  .js .einblenden .projektraster > li,
+  .js .einblenden .aufzaehlung > li, .js .einblenden .schrittfolge > li { opacity: 1; transform: none; }
+  .abschnitt--nacht, .anfrage-block { background: none; color: #000; }
+  .abschnitt--nacht::before, .anfrage-block::before { display: none; }
+  body { font-size: 11pt; }
+  a { text-decoration: none; }
+}
