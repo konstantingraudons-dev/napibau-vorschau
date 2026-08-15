@@ -850,6 +850,17 @@ main li a { text-decoration-color: var(--linie-stark); }
   .schwerpunkt h3 { grid-column: 1 / -1; max-width: 20ch; }
   .schwerpunkt p { margin-bottom: 0; }
 }
+/* Stichliste, Kundenwunsch vom 16.08.2026 ("mehr mit Stichpunkten, nicht
+   so viel Text"): kurze Zeilen mit einem Signalstrich davor statt eines
+   Absatzes. Der Strich kommt aus den lokalen Farbvariablen und stimmt
+   damit auch in dunklen Kaesten. */
+.stichliste { list-style: none; margin: 0 0 var(--raum-2); padding: 0;
+              max-width: var(--lesebreite); }
+.stichliste li { position: relative; padding-left: 1.45rem; margin-bottom: .6rem; }
+.stichliste li::before { content: ""; position: absolute; left: 0; top: .6em;
+                         width: .85rem; height: 2px; background: var(--signal); }
+.stichliste li:last-child { margin-bottom: 0; }
+
 /* Zitatband, Kundenwunsch vom 15.08.2026: das Versprechen steht mittig als
    eigene Zeile, der stuetzende Satz darunter abgesetzt. Beides zentriert,
    der Rest der Seite bleibt linksbuendig: genau eine Stelle darf so laut
