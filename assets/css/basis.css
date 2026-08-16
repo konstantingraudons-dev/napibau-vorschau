@@ -316,6 +316,24 @@ main li a { text-decoration-color: var(--linie-stark); }
                  transition: color var(--dauer-ui) ease,
                              transform var(--dauer-druck) var(--kurve-aus); }
 .kopf__telefon:active { transform: scale(.92); }
+/* Sprachumschalter: drei kleine Flaggen, die aktive voll, die anderen
+   gedimmt. Trefferflaeche je Flagge mindestens 2.5rem hoch (Fingerkuppe),
+   das Bild selbst bleibt klein. */
+.sprachen { display: flex; align-items: center; gap: .15rem; }
+/* In der Kopfzeile nur ab Handbreite: auf dem Telefon wuerde die Zeile
+   umbrechen (320-Pixel-Regel), dort stehen die Flaggen als erste Zeile im
+   Klappblatt (.navi__sprachen). */
+.sprachen--kopf { display: none; }
+@media (min-width: 48rem) {
+  .sprachen--kopf { display: flex; }
+  .navi__sprachen { display: none; }
+}
+.sprachen a { display: flex; align-items: center; justify-content: center;
+              min-width: 2rem; min-height: 2.5rem; opacity: .45;
+              transition: opacity var(--dauer-ui) ease; }
+.sprachen a[aria-current] { opacity: 1; }
+.sprachen svg { display: block; border: 1px solid var(--linie-stark); }
+
 .kopf__telefon-symbol { display: block; }
 
 /* -------------------------------------------------------------- Rubriken */
@@ -1251,6 +1269,7 @@ main address { font-style: normal; }
   .raster--eng a:hover, .sprungliste a:hover { text-decoration: underline; }
   .kachel:hover { border-color: var(--linie-stark); }
   .kartenknopf:hover { border-color: var(--nacht-papier); }
+  .sprachen a:hover { opacity: 1; }
   .leistungskacheln li:hover { border-color: var(--linie-stark); background: #ece3d4; }
   .leistungskacheln li:hover h3 a { text-decoration: underline; }
   .frage > summary:hover h3 { text-decoration: underline; }

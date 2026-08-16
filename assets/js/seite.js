@@ -184,11 +184,20 @@
     var leiste = document.createElement('aside');
     leiste.className = 'hinweisleiste';
     leiste.setAttribute('aria-label', 'Hinweis zum Datenschutz');
-    leiste.innerHTML =
-      '<p>Diese Website kommt ohne Cookies und ohne Tracking aus. ' +
-      'Es gibt deshalb nichts zu bestätigen. Details in der ' +
-      '<a href="/datenschutz/">Datenschutzerklärung</a>.</p>' +
-      '<button class="knopf knopf--signal knopf--klein" type="button">Alles klar</button>';
+    var hinweisTexte = {
+      de: ['Diese Website kommt ohne Cookies und ohne Tracking aus. ' +
+           'Es gibt deshalb nichts zu bestätigen. Details in der ' +
+           '<a href="/datenschutz/">Datenschutzerklärung</a>.', 'Alles klar'],
+      en: ['This website uses no cookies and no tracking, so there is ' +
+           'nothing to consent to. Details in the ' +
+           '<a href="/datenschutz/" hreflang="de">privacy policy (German)</a>.', 'Got it'],
+      pl: ['Ta strona nie używa plików cookie ani śledzenia, więc nie ma ' +
+           'nic do potwierdzania. Szczegóły w ' +
+           '<a href="/datenschutz/" hreflang="de">polityce prywatności (po niemiecku)</a>.', 'Rozumiem'],
+    };
+    var hinweis = hinweisTexte[document.documentElement.lang] || hinweisTexte.de;
+    leiste.innerHTML = '<p>' + hinweis[0] + '</p>' +
+      '<button class="knopf knopf--signal knopf--klein" type="button">' + hinweis[1] + '</button>';
     leiste.querySelector('button').addEventListener('click', function () {
       sitzung('hinweis_gesehen', '1');
       leiste.remove();

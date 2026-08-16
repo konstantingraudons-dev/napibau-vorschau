@@ -141,7 +141,7 @@
     var zurueck = ereignis.submitter && ereignis.submitter.value === '1';
     if (zurueck) { zeige(schritt1, schritt2); return; }
     if (!schritt2.reportValidity()) { return; }
-    uebernehmen(schritt2, schritt3, ['art', 'stadtteil', 'flaeche', 'zeitraum', 'quelle', 'honigtopf', 'zeitstempel', 'csrf']);
+    uebernehmen(schritt2, schritt3, ['art', 'stadt', 'flaeche', 'zeitraum', 'quelle', 'honigtopf', 'zeitstempel', 'csrf']);
     dateienUebernehmen(schritt2, schritt3);
     zeige(schritt3, schritt2);
   });
@@ -150,7 +150,7 @@
     var zurueck = ereignis.submitter && ereignis.submitter.value === '2';
     if (zurueck) {
       ereignis.preventDefault();
-      uebernehmen(schritt3, schritt2, ['stadtteil', 'flaeche', 'zeitraum']);
+      uebernehmen(schritt3, schritt2, ['stadt', 'flaeche', 'zeitraum']);
       dateienUebernehmen(schritt3, schritt2);
       zeige(schritt2, schritt3);
       return;
